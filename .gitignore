@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+*.egg-info/
+
+# Ambiente virtual (recriar com requirements.txt + constraints-cuda.txt)
+03_codigo/.venv/
+
+# Dados de video, indices e artefatos gerados (ver 04_dados/README.md)
+04_dados/raw/
+04_dados/index/
+
+# Configuracao local do Claude Code
+.claude/settings.local.json
+.claude/scheduled_tasks.lock
+
+# OS
+Thumbs.db
+.DS_Store

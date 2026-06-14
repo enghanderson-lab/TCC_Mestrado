@@ -1,0 +1,5 @@
+# Trava o torch/torchvision na build CUDA (cu121) instalada manualmente,
+# para que o pip nao substitua por uma build CPU ao resolver dependencias
+# de outros pacotes (ex.: transformers, open_clip_torch).
+torch==2.5.1+cu121
+torchvision==0.20.1+cu121
