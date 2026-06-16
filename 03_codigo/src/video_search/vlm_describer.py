@@ -101,7 +101,7 @@ class Qwen2VLDescriber:
                 result = result[len(prefix):].strip()
                 break
         # Remove aspas externas que o modelo as vezes adiciona
-        result = result.strip('"').strip("'").strip()
+        result = result.strip().strip('"').strip("'").strip()
         return result
 
     @torch.no_grad()

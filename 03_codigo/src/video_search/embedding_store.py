@@ -27,6 +27,7 @@ class EmbeddingStore:
     def __init__(self) -> None:
         self._embeddings: List[np.ndarray] = []
         self._records: List[FrameRecord] = []
+        self.model_name: str = "clip"
 
     def add(self, embedding: np.ndarray, record: FrameRecord) -> None:
         self._embeddings.append(np.asarray(embedding, dtype=np.float32))
@@ -35,12 +36,14 @@ class EmbeddingStore:
     def __len__(self) -> int:
         return len(self._records)
 
-    def save(self, path: Union[str, Path]) -> None:
+    def save(self, path: Union[str, Path], model_name: str = "clip") -> None:
         path = Path(path)
         path.mkdir(parents=True, exist_ok=True)
         np.save(path / "embeddings.npy", np.stack(self._embeddings))
         with open(path / "records.json", "w", encoding="utf-8") as f:
             json.dump([asdict(r) for r in self._records], f, ensure_ascii=False, indent=2)
+        with open(path / "metadata.json", "w", encoding="utf-8") as f:
+            json.dump({"model_name": model_name}, f)
 
     @classmethod
     def load(cls, path: Union[str, Path]) -> "EmbeddingStore":
@@ -51,6 +54,10 @@ class EmbeddingStore:
             records = json.load(f)
         store._embeddings = [row for row in embeddings]
         store._records = [FrameRecord(**r) for r in records]
+        meta_path = path / "metadata.json"
+        if meta_path.exists():
+            with open(meta_path, encoding="utf-8") as f:
+                store.model_name = json.load(f).get("model_name", "clip")
         return store
 
     def search(self, query_embedding: np.ndarray, top_k: int = 5) -> List[Tuple[float, FrameRecord]]:
