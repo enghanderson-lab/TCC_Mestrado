@@ -64,13 +64,10 @@ def cmd_index(args: argparse.Namespace) -> None:
 def cmd_search(args: argparse.Namespace) -> None:
     embedder = ClipEmbedder()
     store = EmbeddingStore.load(args.index)
-    query_embedding = embedder.encode_text([args.query])[0]
-    results = store.search(query_embedding, top_k=args.top_k)
 
-    if not results:
-        print("Indice vazio.")
-        return
-
+    # Carrega o VLM antes do CLIP para poder traduzir a query para ingles.
+    # O CLIP foi treinado majoritariamente em ingles; queries em portugues
+    # geram embeddings de texto mais fracos, prejudicando o retrieval.
     describer = None
     text_model = None
     if not args.no_caption:
@@ -80,6 +77,18 @@ def cmd_search(args: argparse.Namespace) -> None:
 
         describer = Qwen2VLDescriber()
         text_model = SentenceTransformer(CONFIDENCE_MODEL, device=embedder.device)
+
+    clip_query = args.query
+    if describer is not None:
+        clip_query = describer.translate_to_english(args.query)
+        print(f"[CLIP query (EN): '{clip_query}']")
+
+    query_embedding = embedder.encode_text([clip_query])[0]
+    results = store.search(query_embedding, top_k=args.top_k)
+
+    if not results:
+        print("Indice vazio.")
+        return
 
     print(f"Resultados para: '{args.query}'")
     for score, rec in results:
