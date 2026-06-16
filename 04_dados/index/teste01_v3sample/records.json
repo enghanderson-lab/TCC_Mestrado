@@ -1,0 +1,212 @@
+[
+  {
+    "index": 0,
+    "timestamp_sec": 0.0,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 1,
+    "timestamp_sec": 2.0020000000000002,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 2,
+    "timestamp_sec": 4.0040000000000004,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 3,
+    "timestamp_sec": 6.006,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 4,
+    "timestamp_sec": 8.008000000000001,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 5,
+    "timestamp_sec": 10.01,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 6,
+    "timestamp_sec": 12.012,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 7,
+    "timestamp_sec": 14.014000000000001,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 8,
+    "timestamp_sec": 16.016000000000002,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 9,
+    "timestamp_sec": 18.018,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 10,
+    "timestamp_sec": 20.02,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 11,
+    "timestamp_sec": 22.022000000000002,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 12,
+    "timestamp_sec": 24.024,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 13,
+    "timestamp_sec": 26.026,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 14,
+    "timestamp_sec": 28.028000000000002,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 15,
+    "timestamp_sec": 30.03,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 16,
+    "timestamp_sec": 32.032000000000004,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 17,
+    "timestamp_sec": 34.034,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 18,
+    "timestamp_sec": 36.036,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 19,
+    "timestamp_sec": 38.038000000000004,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 20,
+    "timestamp_sec": 40.04,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 21,
+    "timestamp_sec": 42.042,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 22,
+    "timestamp_sec": 44.044000000000004,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 23,
+    "timestamp_sec": 46.046,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 24,
+    "timestamp_sec": 48.048,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 25,
+    "timestamp_sec": 50.050000000000004,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 26,
+    "timestamp_sec": 52.052,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 27,
+    "timestamp_sec": 54.054,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 28,
+    "timestamp_sec": 56.056000000000004,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  },
+  {
+    "index": 29,
+    "timestamp_sec": 58.058,
+    "video": "teste01.mp4",
+    "video_path": "C:\\Users\\Lucas\\OneDrive\\TCC_Mestrado\\04_dados\\raw\\teste01.mp4",
+    "caption": ""
+  }
+]
