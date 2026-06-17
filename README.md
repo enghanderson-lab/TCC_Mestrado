@@ -5,8 +5,7 @@ gravações de vídeo de longa duração (ex.: 12h), usando modelos de licença
 permissiva (Apache 2.0 / MIT, sem royalties comerciais), permitindo que o
 usuário pesquise por linguagem natural (ex.: "homem de camisa branca e boné
 vermelho") e receba os frames correspondentes com grau de confiança associado.
-O resultado será disponibilizado como microsserviço para integração com um
-software VSM em Qt.
+O resultado será disponibilizado como microsserviço.
 
 ## Estrutura do repositório
 
