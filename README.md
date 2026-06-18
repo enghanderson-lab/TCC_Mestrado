@@ -54,7 +54,7 @@ Query em português
                            └─ Resultado rerankeado por confiança
 ```
 
-O VLM (Qwen2-VL) roda apenas sobre os top-K resultados do CLIP — nunca em
+O VLM (Qwen2.5-VL) roda apenas sobre os top-K resultados do CLIP — nunca em
 todos os frames. O tempo de busca é **fixo em ~17s** independente da duração
 do vídeo.
 
@@ -64,7 +64,7 @@ do vídeo.
 |--------|-------|---------|
 | OpenCLIP ViT-B/32 (laion2b) | Indexação e retrieval de imagens | MIT |
 | clip-ViT-B-32-multilingual-v1 | Encoder de texto multilingue (M-CLIP) | Apache 2.0 |
-| Qwen2-VL-2B-Instruct | Legenda condicional + tradução PT→EN | Apache 2.0 |
+| Qwen2.5-VL-7B-Instruct | Legenda condicional + tradução PT→EN | Apache 2.0 |
 | paraphrase-multilingual-mpnet-base-v2 | Score de confiança (sentence-transformer) | Apache 2.0 |
 
 ## Uso rápido
@@ -113,17 +113,16 @@ Teste com `teste04.mp4`, query "veículo com a placa IYS5B37":
 - retrieval_score: ~0,29 (bem acima do ~0,19 de queries semânticas genéricas)
 - confiança VLM: 82–86% nos frames corretos
 
-**Limitação crítica identificada**: ao buscar por uma placa ligeiramente
-diferente ("IVS5B37" em vez de "IYS5B37"), o Qwen2-VL-2B alucinous a placa
-correta — gerou legendas dizendo "IVS5B37" mesmo o vídeo contendo "IYS5B37",
-resultando em confiança artificialmente alta (até 93%).
+**Limitação identificada no modelo 2B**: ao buscar por uma placa ligeiramente
+diferente ("IVS5B37" em vez de "IYS5B37"), o Qwen2-VL-2B alucinava a placa —
+gerou legendas dizendo "IVS5B37" mesmo o vídeo contendo "IYS5B37", resultando
+em confiança artificialmente alta (até 93%).
 
-Isso é **viés de confirmação em OCR**: o prompt `describe_for_query` condiciona
-o VLM a descrever elementos relacionados à query, e o modelo de 2B parâmetros
-tende a repetir o texto da query ao invés de ler os pixels da placa com
-precisão. O pipeline é confiável para queries semânticas/visuais (pessoas,
-roupas, objetos, ações), mas **não deve ser usado como sistema de OCR de
-placas** sem um módulo dedicado de leitura de texto (ex.: EasyOCR, PaddleOCR).
+Isso é **viés de confirmação em OCR**: o modelo de 2B parâmetros tende a
+repetir o texto da query ao invés de ler os pixels com precisão. O pipeline foi
+atualizado para **Qwen2.5-VL-7B-Instruct** (Apache 2.0), com melhor capacidade
+de OCR e compreensão visual. A validação do comportamento de OCR com o 7B está
+pendente.
 
 ### Qualidade de confiança por tipo de query
 
