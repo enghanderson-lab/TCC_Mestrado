@@ -1,10 +1,10 @@
-"""Wrapper para Qwen2.5-VL-7B-Instruct (Apache 2.0): descricao de frames e
+"""Wrapper para Qwen2.5-VL-3B-Instruct (Apache 2.0): descricao de frames e
 verificacao de atributos (VQA) com grau de confianca.
 
-Usa device_map='auto' para distribuir o modelo entre GPU e RAM quando a VRAM
-nao e suficiente para o modelo completo (ex.: 7B em bfloat16 requer ~14GB;
-RTX 4060 tem 8GB). O overhead de desempenho e aceito em troca de melhor
-qualidade de OCR e compreensao visual vs o modelo 2B anterior."""
+Modelo 3B escolhido para caber na RTX 4060 (8GB VRAM):
+  - 3B em bfloat16 ocupa ~6GB, deixando ~2GB para KV-cache e ativacoes
+  - 7B em bfloat16 exigiria ~14GB (OOM na RTX 4060)
+  - Para usar 7B seria necessario CPU offload (lento) ou quantizacao AWQ"""
 
 from typing import List, Optional, Sequence
 
@@ -17,9 +17,9 @@ from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
 class Qwen2VLDescriber:
     def __init__(
         self,
-        model_name: str = "Qwen/Qwen2.5-VL-7B-Instruct",
+        model_name: str = "Qwen/Qwen2.5-VL-3B-Instruct",
         device: Optional[str] = None,
-        dtype: str = "auto",
+        dtype: torch.dtype = torch.bfloat16,
     ) -> None:
         self.model = (
             Qwen2_5_VLForConditionalGeneration.from_pretrained(
