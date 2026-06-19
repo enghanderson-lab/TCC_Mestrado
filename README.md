@@ -167,3 +167,8 @@ RTSP e RTMP via OpenCV.
 ### 3. Microsserviço FastAPI
 
 Expor `index` e `search` como endpoints HTTP para integração com o VSM em Qt.
+
+
+
+
+OBS: Testar o uso da VLM apenas nos frames capturados pela M-clip.
