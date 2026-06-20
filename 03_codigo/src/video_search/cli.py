@@ -177,7 +177,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_search = sub.add_parser("search", help="Busca frames por descricao em texto")
     p_search.add_argument("query", help="Descricao em linguagem natural")
     p_search.add_argument("--index", default="index", help="Pasta do indice gerado por 'index'")
-    p_search.add_argument("--top-k", type=int, default=5, help="Numero de resultados")
+    p_search.add_argument("--top-k", type=int, default=12, help="Numero de resultados")
     p_search.add_argument(
         "--no-caption",
         action="store_true",
