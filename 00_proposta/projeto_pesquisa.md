@@ -33,7 +33,7 @@ Desenvolver e avaliar um pipeline de busca semântica em vídeos de longa
 duração baseado em VLM(s) de licença permissiva, capaz de localizar
 ocorrências descritas em linguagem natural via chat e retornar os frames
 correspondentes com grau de certeza associado, projetado como microsserviço
-integrável a um sistema de videomonitoramento (VSM) desenvolvido em Qt.
+integrável a um sistema de videomonitoramento (VMS).
 
 ## Objetivos específicos
 
