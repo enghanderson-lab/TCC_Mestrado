@@ -1,0 +1,464 @@
+[
+  {
+    "index": 0,
+    "timestamp_sec": 0.0,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 1,
+    "timestamp_sec": 1.000001393939394,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 2,
+    "timestamp_sec": 2.000002787878788,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 3,
+    "timestamp_sec": 3.000004181818182,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 4,
+    "timestamp_sec": 4.000005575757576,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 5,
+    "timestamp_sec": 5.00000696969697,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 6,
+    "timestamp_sec": 6.000008363636364,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 7,
+    "timestamp_sec": 7.000009757575758,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 8,
+    "timestamp_sec": 8.000011151515151,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 9,
+    "timestamp_sec": 9.000012545454545,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 10,
+    "timestamp_sec": 10.00001393939394,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 11,
+    "timestamp_sec": 11.000015333333334,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 12,
+    "timestamp_sec": 12.000016727272728,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 13,
+    "timestamp_sec": 13.000018121212122,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 14,
+    "timestamp_sec": 14.000019515151516,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 15,
+    "timestamp_sec": 15.00002090909091,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 16,
+    "timestamp_sec": 16.000022303030303,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 17,
+    "timestamp_sec": 17.0000236969697,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 18,
+    "timestamp_sec": 18.00002509090909,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 19,
+    "timestamp_sec": 19.000026484848487,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 20,
+    "timestamp_sec": 20.00002787878788,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 21,
+    "timestamp_sec": 21.000029272727275,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 22,
+    "timestamp_sec": 22.000030666666667,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 23,
+    "timestamp_sec": 23.000032060606063,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 24,
+    "timestamp_sec": 24.000033454545456,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 25,
+    "timestamp_sec": 25.000034848484848,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 26,
+    "timestamp_sec": 26.000036242424244,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 27,
+    "timestamp_sec": 27.000037636363636,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 28,
+    "timestamp_sec": 28.000039030303032,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 29,
+    "timestamp_sec": 29.000040424242425,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 30,
+    "timestamp_sec": 30.00004181818182,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 31,
+    "timestamp_sec": 31.000043212121213,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 32,
+    "timestamp_sec": 32.000044606060605,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 33,
+    "timestamp_sec": 33.000046000000005,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 34,
+    "timestamp_sec": 34.0000473939394,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 35,
+    "timestamp_sec": 35.00004878787879,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 36,
+    "timestamp_sec": 36.00005018181818,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 37,
+    "timestamp_sec": 37.000051575757574,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 38,
+    "timestamp_sec": 38.00005296969697,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 39,
+    "timestamp_sec": 39.000054363636366,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 40,
+    "timestamp_sec": 40.00005575757576,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 41,
+    "timestamp_sec": 41.00005715151515,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 42,
+    "timestamp_sec": 42.00005854545455,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 43,
+    "timestamp_sec": 43.00005993939394,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 44,
+    "timestamp_sec": 44.000061333333335,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 45,
+    "timestamp_sec": 45.00006272727273,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 46,
+    "timestamp_sec": 46.00006412121213,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 47,
+    "timestamp_sec": 47.00006551515152,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 48,
+    "timestamp_sec": 48.00006690909091,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 49,
+    "timestamp_sec": 49.000068303030304,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 50,
+    "timestamp_sec": 50.000069696969696,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 51,
+    "timestamp_sec": 51.000071090909096,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 52,
+    "timestamp_sec": 52.00007248484849,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 53,
+    "timestamp_sec": 53.00007387878788,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 54,
+    "timestamp_sec": 54.00007527272727,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 55,
+    "timestamp_sec": 55.00007666666667,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 56,
+    "timestamp_sec": 56.000078060606064,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 57,
+    "timestamp_sec": 57.00007945454546,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 58,
+    "timestamp_sec": 58.00008084848485,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 59,
+    "timestamp_sec": 59.00008224242424,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 60,
+    "timestamp_sec": 60.00008363636364,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 61,
+    "timestamp_sec": 61.00008503030303,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 62,
+    "timestamp_sec": 62.000086424242426,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 63,
+    "timestamp_sec": 63.00008781818182,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 64,
+    "timestamp_sec": 64.00008921212121,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  },
+  {
+    "index": 65,
+    "timestamp_sec": 65.00009060606061,
+    "video": "teste7.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\teste7.mp4",
+    "caption": ""
+  }
+]

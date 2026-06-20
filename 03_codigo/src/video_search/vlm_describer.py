@@ -152,16 +152,25 @@ class Qwen2VLDescriber:
         self,
         image: Image.Image,
         query: str,
-        max_new_tokens: int = 32,
+        max_new_tokens: int = 40,
     ) -> str:
         """Legenda curta e focada na consulta: descreve em 1 frase os
         elementos da imagem relacionados a `query`. Mantem especificidade
         comparavel a da query (em vez de uma legenda generica e longa), o que
-        torna a similaridade texto-texto com a query mais discriminativa."""
+        torna a similaridade texto-texto com a query mais discriminativa.
+
+        O prompt evita a forma "Esta imagem mostra X?": essa pergunta direta
+        induz confirmacao em objetos visualmente parecidos mas diferentes do
+        pedido (ex.: confundiu rack de teto com escada, mesmo em resolucao
+        plena) -- viés parecido ao que fez `match_confidence` ser abandonado.
+        Em vez disso, pede para nomear o tipo exato do objeto visto."""
         prompt = (
-            f"Esta imagem mostra: '{query}'? Descreva em 1 frase curta o que "
-            "a imagem mostra, focando nos elementos relacionados a essa "
-            "pergunta."
+            f"Estou procurando por: '{query}'. Sem assumir que isso esta na "
+            "imagem, observe com atencao e descreva em 1 frase curta o que "
+            "realmente aparece, nomeando o tipo exato dos objetos (ex.: "
+            "moto ou bicicleta, van ou caminhonete, escada ou rack de "
+            "teto). Se o que aparece for apenas parecido mas diferente do "
+            "que foi pedido, diga o que e de fato, em vez de confirmar."
         )
         return self.describe(image, prompt=prompt, max_new_tokens=max_new_tokens)
 
