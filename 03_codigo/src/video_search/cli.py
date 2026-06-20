@@ -1,25 +1,27 @@
 """CLI: indexar um vídeo e buscar frames por descrição em linguagem natural.
 
-A indexacao gera apenas embeddings CLIP/M-CLIP (rapido, todos os frames). A
-legenda (Qwen2-VL) e a confianca textual sao calculadas sob demanda, apenas
-para os top-K resultados de uma busca.
+A indexacao gera apenas embeddings (rapido, todos os frames). A legenda
+(Qwen2.5-VL) e a confianca textual sao calculadas sob demanda, apenas para os
+top-K resultados de uma busca.
 
 Modelos disponiveis (--model):
-  clip   — OpenCLIP ViT-B/32 (laion2b_s34b_b79k, MIT). Requer traducao para
-            ingles; query PT traduzida automaticamente via Qwen2-VL.
-  mclip  — M-CLIP multilingue: texto XLM-RoBERTa + imagem OpenAI ViT-B/32
-            (Apache 2.0). Processa portugues diretamente, sem traducao.
+  clip   — OpenCLIP ViT-B/32 laion2b (MIT). Requer traducao PT->EN via VLM.
+  mclip  — M-CLIP: XLM-RoBERTa + OpenAI ViT-B/32 (Apache 2.0). PT nativo.
+  siglip — SigLIP multilingual base-patch16-256 (Apache 2.0). PT nativo,
+           melhor retrieval que CLIP/M-CLIP (sigmoid loss, dim=768).
 
 Exemplos:
     python -m video_search.cli index video.mp4 --output index/video --interval 2
-    python -m video_search.cli index video.mp4 --output index/video_mclip --model mclip
+    python -m video_search.cli index video.mp4 --output index/video_siglip --model siglip
     python -m video_search.cli search "homem de camisa branca" --index index/video
 """
 
 import argparse
+import sys
 from pathlib import Path
 
 import numpy as np
+import torch
 
 from .embedder import ClipEmbedder
 from .embedding_store import EmbeddingStore, FrameRecord
@@ -33,7 +35,14 @@ def _make_embedder(model_name: str):
     if model_name == "mclip":
         from .mclip_embedder import MCLIPEmbedder
         return MCLIPEmbedder()
+    if model_name == "siglip":
+        from .siglip_embedder import SigLIPEmbedder
+        return SigLIPEmbedder()
     return ClipEmbedder()
+
+
+# Modelos que aceitam portugues diretamente (sem precisar traduzir para EN)
+_MULTILINGUAL_MODELS = {"mclip", "siglip"}
 
 
 def cmd_index(args: argparse.Namespace) -> None:
@@ -81,24 +90,45 @@ def cmd_search(args: argparse.Namespace) -> None:
     print(f"[Indice: modelo={model_name}]")
 
     embedder = _make_embedder(model_name)
+    need_caption = not args.no_caption
+    needs_translation = need_caption and model_name not in _MULTILINGUAL_MODELS
 
+    # CLIP (nao-multilingue) precisa do Qwen2.5-VL ANTES do retrieval, so para
+    # traduzir a query PT->EN. M-CLIP/SigLIP nao precisam de traducao, entao
+    # adiamos o load do Qwen para depois de liberar o embedder de retrieval
+    # da VRAM — evita os dois modelos grandes residentes ao mesmo tempo, que
+    # e o que fazia o Qwen cair em CPU-offload parcial numa 4060 8GB.
     describer = None
-    text_model = None
-    if not args.no_caption:
-        from sentence_transformers import SentenceTransformer
+    if needs_translation:
         from .vlm_describer import Qwen2VLDescriber
 
         describer = Qwen2VLDescriber()
-        text_model = SentenceTransformer(CONFIDENCE_MODEL, device=embedder.device)
 
-    # M-CLIP aceita portugues diretamente; CLIP precisa de traducao para ingles.
     query_for_retrieval = args.query
-    if model_name == "clip" and describer is not None:
+    if describer is not None:
         query_for_retrieval = describer.translate_to_english(args.query)
         print(f"[CLIP query (EN): '{query_for_retrieval}']")
 
     query_embedding = embedder.encode_text([query_for_retrieval])[0]
     results = store.search(query_embedding, top_k=args.top_k)
+
+    # O embedder de retrieval ja fez seu trabalho; liberar sua VRAM agora da
+    # mais espaço para o Qwen2.5-VL durante o generate() de cada legenda.
+    del embedder
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    text_model = None
+    if need_caption:
+        from sentence_transformers import SentenceTransformer
+        from .vlm_describer import Qwen2VLDescriber
+
+        if describer is None:
+            describer = Qwen2VLDescriber()
+        # CPU de proposito: o calculo de confianca so processa 2 frases curtas
+        # por resultado, custo irrelevante. Mantendo isso fora da GPU libera
+        # ~1GB de VRAM para o Qwen2.5-VL.
+        text_model = SentenceTransformer(CONFIDENCE_MODEL, device="cpu")
 
     if not results:
         print("Indice vazio.")
@@ -132,9 +162,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_index.add_argument("--batch-size", type=int, default=16, help="Tamanho do lote para inferencia")
     p_index.add_argument(
         "--model",
-        choices=["clip", "mclip"],
+        choices=["clip", "mclip", "siglip"],
         default="clip",
-        help="Modelo de embedding (clip=OpenCLIP laion2b | mclip=multilingue, default: clip)",
+        help="Modelo de embedding (clip | mclip | siglip, default: clip)",
     )
     p_index.add_argument(
         "--limit",
@@ -159,6 +189,10 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main() -> None:
+    # No Windows, stdout nao-interativo (pipe/redirecionamento) cai para a
+    # codepage do sistema em vez de UTF-8, e acentos (ç, õ, ã) saem como "?".
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8")
     parser = build_parser()
     args = parser.parse_args()
     args.func(args)

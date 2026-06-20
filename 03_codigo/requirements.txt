@@ -14,3 +14,6 @@ accelerate
 qwen-vl-utils
 av
 sentence-transformers
+sentencepiece
+protobuf
+bitsandbytes

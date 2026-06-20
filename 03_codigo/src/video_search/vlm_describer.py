@@ -1,17 +1,41 @@
 """Wrapper para Qwen2.5-VL-3B-Instruct (Apache 2.0): descricao de frames e
 verificacao de atributos (VQA) com grau de confianca.
 
-Modelo 3B escolhido para caber na RTX 4060 (8GB VRAM):
-  - 3B em bfloat16 ocupa ~6GB, deixando ~2GB para KV-cache e ativacoes
-  - 7B em bfloat16 exigiria ~14GB (OOM na RTX 4060)
-  - Para usar 7B seria necessario CPU offload (lento) ou quantizacao AWQ"""
+Modelo 3B escolhido para caber em GPUs de 6-8GB VRAM (RTX 3060/4060):
+  - 3B em bfloat16 ocupa ~6GB, deixando pouca margem para KV-cache,
+    ativacoes e os outros modelos (embedder de retrieval, sentence-
+    transformer) que tambem disputam VRAM durante a busca.
+  - Por isso o default e carregar em 4-bit (bitsandbytes, NF4) — cai para
+    ~2GB de pesos, com perda de qualidade desprezivel para legendas curtas
+    e classificacao Sim/Nao. Da bastante margem ate numa RTX 3060 6GB
+    (laptop), o pior caso considerado.
+  - 7B em bfloat16 exigiria ~14GB (OOM mesmo numa 4060); 7B em 4-bit (~5GB)
+    poderia ser viavel, mas nao foi testado."""
 
 from typing import List, Optional, Sequence
 
 import torch
 from PIL import Image
 from qwen_vl_utils import process_vision_info
-from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
+from transformers import AutoProcessor, BitsAndBytesConfig, Qwen2_5_VLForConditionalGeneration
+
+
+_MAX_IMAGE_SIDE = 768
+
+
+def _resize_for_vlm(image: Image.Image, max_side: int = _MAX_IMAGE_SIDE) -> Image.Image:
+    """Limita o lado maior do frame antes do Qwen2.5-VL.
+
+    Sem isso, o qwen_vl_utils aceita imagens de altissima resolucao (ex.:
+    2688x1520 de videos 4K) e gera milhares de tokens visuais por frame
+    (ate 16384), o que faz a VRAM da RTX 4060 (8GB) estourar durante o
+    generate() e o driver da NVIDIA cair para "shared GPU memory" no
+    Windows — isso trava a maquina inteira, nao so o processo Python."""
+    width, height = image.size
+    scale = max_side / max(width, height)
+    if scale >= 1:
+        return image
+    return image.resize((round(width * scale), round(height * scale)))
 
 
 class Qwen2VLDescriber:
@@ -20,12 +44,22 @@ class Qwen2VLDescriber:
         model_name: str = "Qwen/Qwen2.5-VL-3B-Instruct",
         device: Optional[str] = None,
         dtype: torch.dtype = torch.bfloat16,
+        quantize: bool = True,
     ) -> None:
+        quantization_config = None
+        if quantize:
+            quantization_config = BitsAndBytesConfig(
+                load_in_4bit=True,
+                bnb_4bit_quant_type="nf4",
+                bnb_4bit_compute_dtype=dtype,
+                bnb_4bit_use_double_quant=True,
+            )
         self.model = (
             Qwen2_5_VLForConditionalGeneration.from_pretrained(
                 model_name,
                 torch_dtype=dtype,
                 device_map="auto",
+                quantization_config=quantization_config,
             )
             .eval()
         )
@@ -45,6 +79,7 @@ class Qwen2VLDescriber:
         ]
 
     def _prepare_inputs(self, image: Image.Image, prompt: str):
+        image = _resize_for_vlm(image)
         messages = self._build_messages(image, prompt)
         text = self.processor.apply_chat_template(
             messages, tokenize=False, add_generation_prompt=True
