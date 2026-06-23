@@ -1,5 +1,5 @@
 """Calibracao do score de confianca: estima o piso (pares nao relacionados)
-e o teto (parafrases) da similaridade de texto-texto do CLIP, para
+e o teto (parafrases) da similaridade de texto-texto do SigLIP, para
 reescalonar confianca_legenda para uma faixa 0-100% mais interpretavel."""
 
 import sys
@@ -10,7 +10,7 @@ from sentence_transformers import SentenceTransformer
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from video_search.embedder import ClipEmbedder  # noqa: E402
+from video_search.siglip_embedder import SigLIPEmbedder  # noqa: E402
 
 # Pares "match": mesma cena/conceito descrito com palavras diferentes
 PARAPHRASE_PAIRS = [
@@ -33,7 +33,7 @@ RANDOM_PAIRS = [
 ]
 
 
-def avg_sim_clip(embedder, pairs):
+def avg_sim_siglip(embedder, pairs):
     sims = []
     for a, b in pairs:
         ea = embedder.encode_text([a])[0]
@@ -70,10 +70,10 @@ def report(name, match_sims, mismatch_sims, pairs_match, pairs_mismatch):
 
 
 def main():
-    embedder = ClipEmbedder()
-    clip_match = avg_sim_clip(embedder, PARAPHRASE_PAIRS)
-    clip_mismatch = avg_sim_clip(embedder, RANDOM_PAIRS)
-    report("CLIP text-text", clip_match, clip_mismatch, PARAPHRASE_PAIRS, RANDOM_PAIRS)
+    embedder = SigLIPEmbedder()
+    siglip_match = avg_sim_siglip(embedder, PARAPHRASE_PAIRS)
+    siglip_mismatch = avg_sim_siglip(embedder, RANDOM_PAIRS)
+    report("SigLIP text-text", siglip_match, siglip_mismatch, PARAPHRASE_PAIRS, RANDOM_PAIRS)
 
     st_model = SentenceTransformer(
         "sentence-transformers/paraphrase-multilingual-mpnet-base-v2",

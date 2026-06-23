@@ -8,7 +8,6 @@ pytest
 requests
 
 # Instalar com: pip install -r requirements.txt -c constraints-cuda.txt
-open_clip_torch
 transformers
 accelerate
 qwen-vl-utils

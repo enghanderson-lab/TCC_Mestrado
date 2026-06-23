@@ -1,8 +1,8 @@
 """Teste de sanidade do pipeline v2: legenda (Qwen2-VL) + similaridade
-textual (CLIP) como score de confianca, comparado ao score CLIP imagem-texto.
+textual (SigLIP) como score de confianca, comparado ao score SigLIP imagem-texto.
 
 Gera 4 cenas sinteticas, descreve cada uma com o Qwen2-VL e calcula, para a
-mesma query, tanto o score CLIP imagem-texto (ranking) quanto o novo score
+mesma query, tanto o score SigLIP imagem-texto (ranking) quanto o novo score
 de confianca via similaridade texto-texto (query x legenda)."""
 
 import sys
@@ -12,7 +12,7 @@ from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from video_search.embedder import ClipEmbedder  # noqa: E402
+from video_search.siglip_embedder import SigLIPEmbedder  # noqa: E402
 from video_search.vlm_describer import Qwen2VLDescriber  # noqa: E402
 
 
@@ -47,9 +47,9 @@ BLUE = (40, 70, 180)
 
 
 def main():
-    embedder = ClipEmbedder()
+    embedder = SigLIPEmbedder()
     describer = Qwen2VLDescriber()
-    print(f"CLIP device: {embedder.device} | Qwen2-VL device: {describer.device}")
+    print(f"SigLIP device: {embedder.device} | Qwen2-VL device: {describer.device}")
 
     query = "homem de camisa branca e bone vermelho"
     query_embedding = embedder.encode_text([query])[0]
@@ -64,7 +64,7 @@ def main():
     print(f"\nQuery: '{query}'\n")
     for name, image in scenes.items():
         image_embedding = embedder.encode_images([image])[0]
-        clip_score = float(query_embedding @ image_embedding)
+        siglip_score = float(query_embedding @ image_embedding)
 
         caption = describer.describe(image)
         caption_embedding = embedder.encode_text([caption])[0]
@@ -72,7 +72,7 @@ def main():
 
         print(f"=== {name} ===")
         print(f"  legenda: {caption}")
-        print(f"  clip_score (img-texto)      = {clip_score:.4f}")
+        print(f"  siglip_score (img-texto)    = {siglip_score:.4f}")
         print(f"  confianca_legenda (txt-txt) = {text_confidence:.4f}")
         print()
 

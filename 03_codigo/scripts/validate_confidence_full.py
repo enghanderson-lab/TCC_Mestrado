@@ -10,7 +10,7 @@ from sentence_transformers import SentenceTransformer
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from video_search.embedder import ClipEmbedder  # noqa: E402
+from video_search.siglip_embedder import SigLIPEmbedder  # noqa: E402
 from video_search.embedding_store import EmbeddingStore  # noqa: E402
 from video_search.frame_extractor import extract_frame_at  # noqa: E402
 from video_search.vlm_describer import Qwen2VLDescriber  # noqa: E402
@@ -28,7 +28,7 @@ TOP_K = 3
 
 
 def main():
-    embedder = ClipEmbedder()
+    embedder = SigLIPEmbedder()
     store = EmbeddingStore.load(INDEX_DIR)
     describer = Qwen2VLDescriber()
     text_model = SentenceTransformer(
@@ -49,7 +49,7 @@ def main():
             confidence = float(np.dot(emb[0], emb[1]))
             print(
                 f"  t={int(minutes):02d}:{seconds:05.2f}  frame={rec.index:6d}  "
-                f"clip_score={score:.4f}  confianca_legenda={confidence * 100:.1f}%  "
+                f"retrieval_score={score:.4f}  confianca_legenda={confidence * 100:.1f}%  "
                 f"legenda='{caption}'"
             )
 

@@ -106,47 +106,6 @@ class Qwen2VLDescriber:
         trimmed = output_ids[:, inputs["input_ids"].shape[1] :]
         return self.processor.batch_decode(trimmed, skip_special_tokens=True)[0].strip()
 
-    # Prefixos que o LLM pode adicionar mesmo com instrucao de omiti-los.
-    _TRANSLATION_PREFIXES = (
-        "english translation:", "translation:", "english:", "en:", "translated:",
-        "result:", "output:",
-    )
-
-    @torch.no_grad()
-    def translate_to_english(self, text: str, max_new_tokens: int = 32) -> str:
-        """Traduz `text` para ingles usando o proprio Qwen2-VL (sem imagem).
-        Usado para melhorar o retrieval CLIP, que foi treinado majoritariamente
-        em ingles."""
-        messages = [
-            {
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": f'Translate to English (reply with the translation only): "{text}"',
-                    }
-                ],
-            }
-        ]
-        formatted = self.processor.apply_chat_template(
-            messages, tokenize=False, add_generation_prompt=True
-        )
-        inputs = self.processor(
-            text=[formatted], padding=True, return_tensors="pt"
-        ).to(self.device)
-        output_ids = self.model.generate(**inputs, max_new_tokens=max_new_tokens)
-        trimmed = output_ids[:, inputs["input_ids"].shape[1] :]
-        result = self.processor.batch_decode(trimmed, skip_special_tokens=True)[0].strip()
-        # Remove prefixos que o modelo pode adicionar (ex.: "English translation: ...")
-        lower = result.lower()
-        for prefix in self._TRANSLATION_PREFIXES:
-            if lower.startswith(prefix):
-                result = result[len(prefix):].strip()
-                break
-        # Remove aspas externas que o modelo as vezes adiciona
-        result = result.strip().strip('"').strip("'").strip()
-        return result
-
     @torch.no_grad()
     def describe_for_query(
         self,
