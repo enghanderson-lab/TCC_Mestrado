@@ -14,6 +14,7 @@ O resultado será disponibilizado como microsserviço.
 01_revisao_bibliografica/ Mapeamento de literatura, candidatos a VLM
 02_dissertacao/           Documento da dissertação (LaTeX/abnTeX2)
 03_codigo/                Implementação do pipeline
+  API.md                  Guia de uso da API HTTP (endpoints, exemplos)
   src/video_search/
     cli.py                Ponto de entrada CLI: comandos index e search
     api.py                Microsserviço HTTP (FastAPI): endpoints index/search
@@ -104,6 +105,9 @@ uvicorn video_search.api:app --host 0.0.0.0 --port 8000
 upload via multipart — vídeos de horas não cabem num upload HTTP razoável).
 `name`/`index` são resolvidos dentro de `04_dados/index` (configurável via
 `VIDEO_SEARCH_INDEX_ROOT`).
+
+Guia completo com exemplos de requisição/resposta para cada endpoint:
+[03_codigo/API.md](03_codigo/API.md).
 
 ## Achados de validação
 

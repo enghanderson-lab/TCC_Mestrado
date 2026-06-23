@@ -64,6 +64,15 @@ Smoke test do Qwen2.5-VL (baixa os pesos do modelo na primeira execução):
 .venv\Scripts\python.exe scripts\smoke_test_qwen2vl.py
 ```
 
+## Microsserviço HTTP
+
+```powershell
+.venv\Scripts\python.exe -m uvicorn video_search.api:app --port 8000
+```
+
+Guia completo de uso da API (endpoints, exemplos de requisição/resposta,
+fluxo indexar→buscar): [API.md](API.md).
+
 ## Limitações conhecidas / próximos passos
 
 - SigLIP dá um score de similaridade, não uma "confiança" calibrada — por
@@ -75,8 +84,7 @@ Smoke test do Qwen2.5-VL (baixa os pesos do modelo na primeira execução):
 - Limitação residual: confusão entre objetos visualmente parecidos (ex.:
   escada vs. rack de teto) — tanto no retrieval do SigLIP quanto no
   reranking do VLM.
-- Microsserviço FastAPI (`api.py`) implementado — ver contrato dos endpoints
-  no [README do projeto](../README.md#via-microsserviço-http). Falta
+- Microsserviço FastAPI (`api.py`) implementado — ver [API.md](API.md). Falta
   autenticação e persistência dos jobs de indexação (hoje em memória).
 
 ## Ideias de stack (a confirmar)
