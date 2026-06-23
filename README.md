@@ -15,7 +15,9 @@ O resultado será disponibilizado como microsserviço.
 02_dissertacao/           Documento da dissertação (LaTeX/abnTeX2)
 03_codigo/                Implementação do pipeline
   src/video_search/
-    cli.py                Ponto de entrada: comandos index e search
+    cli.py                Ponto de entrada CLI: comandos index e search
+    api.py                Microsserviço HTTP (FastAPI): endpoints index/search
+    pipeline.py           run_index/run_search — lógica compartilhada por cli.py e api.py
     siglip_embedder.py    SigLIPEmbedder — encoder multilingue (Apache 2.0)
     vlm_describer.py      Qwen2VLDescriber — legenda condicionada a query
     embedding_store.py    Índice em memória (numpy), com metadata.json
@@ -80,6 +82,28 @@ python -m video_search.cli search "homem com caderno de anotações" --index "..
 # Buscar sem VLM (apenas SigLIP, mais rápido)
 python -m video_search.cli search "homem com caderno de anotações" --index "..\04_dados\index\meu_video" --no-caption
 ```
+
+### Via microsserviço HTTP
+
+```powershell
+cd 03_codigo
+.\.venv\Scripts\Activate.ps1
+$env:PYTHONPATH = "src"
+uvicorn video_search.api:app --host 0.0.0.0 --port 8000
+```
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| GET | `/health` | Sanity check |
+| GET | `/indexes` | Lista índices existentes (nome, nº de frames, modelo) |
+| POST | `/index` | `{video_path, name, interval, batch_size, limit}` → dispara indexação em background, retorna `{job_id, status}` |
+| GET | `/index/jobs/{job_id}` | Status do job (`queued`/`running`/`done`/`error`) |
+| POST | `/search` | `{query, index, top_k, with_caption}` → lista de resultados (frame, score, confiança, legenda) |
+
+`video_path` é um caminho em disco acessível ao processo do serviço (sem
+upload via multipart — vídeos de horas não cabem num upload HTTP razoável).
+`name`/`index` são resolvidos dentro de `04_dados/index` (configurável via
+`VIDEO_SEARCH_INDEX_ROOT`).
 
 ## Achados de validação
 
@@ -196,6 +220,9 @@ está pronto no momento em que a busca é necessária.
 Protótipo planejado: novo comando `stream-index` no CLI com suporte a URLs
 RTSP e RTMP via OpenCV.
 
-### 2. Microsserviço FastAPI
+### 2. Endurecer o microsserviço FastAPI para produção
 
-Expor `index` e `search` como endpoints HTTP para integração com o VMS em Qt.
+O microsserviço (`api.py`) já expõe `index`/`search` via HTTP (ver seção
+"Uso rápido"), mas fora de escopo na v1: autenticação/autorização (assumido
+em rede interna por ora) e persistência dos jobs de indexação em disco/banco
+(hoje em memória, perdidos ao reiniciar o processo).

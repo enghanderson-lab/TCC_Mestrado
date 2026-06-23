@@ -75,10 +75,11 @@ Smoke test do Qwen2.5-VL (baixa os pesos do modelo na primeira execução):
 - Limitação residual: confusão entre objetos visualmente parecidos (ex.:
   escada vs. rack de teto) — tanto no retrieval do SigLIP quanto no
   reranking do VLM.
-- Empacotar como microsserviço (FastAPI) para integração com o VMS (Qt).
+- Microsserviço FastAPI (`api.py`) implementado — ver contrato dos endpoints
+  no [README do projeto](../README.md#via-microsserviço-http). Falta
+  autenticação e persistência dos jobs de indexação (hoje em memória).
 
 ## Ideias de stack (a confirmar)
 
-- API do microsserviço: FastAPI
 - Indexação vetorial: FAISS / Qdrant (avaliar para escala)
 - Processamento de vídeo: OpenCV / ffmpeg

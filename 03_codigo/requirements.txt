@@ -6,6 +6,9 @@ opencv-python
 Pillow
 pytest
 requests
+fastapi
+uvicorn[standard]
+httpx
 
 # Instalar com: pip install -r requirements.txt -c constraints-cuda.txt
 transformers

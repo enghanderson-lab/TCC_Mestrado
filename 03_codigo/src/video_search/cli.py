@@ -7,6 +7,9 @@ top-K resultados de uma busca.
 Modelo de embedding: SigLIP multilingual base-patch16-256 (Apache 2.0).
 Suporte nativo a PT (sem necessidade de traducao da query).
 
+A logica de indexacao/busca vive em `pipeline.py`, compartilhada com a API
+HTTP (`api.py`).
+
 Exemplos:
     python -m video_search.cli index video.mp4 --output index/video --interval 2
     python -m video_search.cli search "homem de camisa branca" --index index/video
@@ -14,103 +17,50 @@ Exemplos:
 
 import argparse
 import sys
-from pathlib import Path
 
-import numpy as np
-import torch
-
-from .embedding_store import EmbeddingStore, FrameRecord
-from .frame_extractor import extract_frame_at, extract_frames
-from .siglip_embedder import SigLIPEmbedder
-
-CONFIDENCE_MODEL = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
+from .pipeline import run_index, run_search
 
 
 def cmd_index(args: argparse.Namespace) -> None:
-    embedder = SigLIPEmbedder()
-    store = EmbeddingStore()
-    video_name = Path(args.video).name
-    video_path = str(Path(args.video).resolve())
+    def on_progress(frame_count: int) -> None:
+        print(f"Processados {frame_count} frames...")
 
-    batch_images = []
-    batch_records = []
-
-    def flush() -> None:
-        if not batch_images:
-            return
-        embeddings = embedder.encode_images(batch_images)
-        for emb, rec in zip(embeddings, batch_records):
-            store.add(emb, rec)
-        batch_images.clear()
-        batch_records.clear()
-
-    for frame in extract_frames(args.video, interval_sec=args.interval):
-        if args.limit and frame.index >= args.limit:
-            break
-        batch_images.append(frame.image)
-        batch_records.append(
-            FrameRecord(
-                index=frame.index,
-                timestamp_sec=frame.timestamp_sec,
-                video=video_name,
-                video_path=video_path,
-            )
-        )
-        if len(batch_images) >= args.batch_size:
-            flush()
-            print(f"Processados {len(store)} frames...")
-    flush()
-
-    store.save(args.output, model_name="siglip")
-    print(f"Indice salvo em '{args.output}' ({len(store)} frames, modelo=siglip, intervalo={args.interval}s)")
+    summary = run_index(
+        args.video,
+        args.output,
+        interval=args.interval,
+        batch_size=args.batch_size,
+        limit=args.limit,
+        on_progress=on_progress,
+    )
+    print(
+        f"Indice salvo em '{summary.output_dir}' ({summary.frame_count} frames, "
+        f"modelo={summary.model_name}, intervalo={args.interval}s)"
+    )
 
 
 def cmd_search(args: argparse.Namespace) -> None:
-    store = EmbeddingStore.load(args.index)
-    print(f"[Indice: modelo={store.model_name}]")
-
-    embedder = SigLIPEmbedder()
-    need_caption = not args.no_caption
-
-    query_embedding = embedder.encode_text([args.query])[0]
-    results = store.search(query_embedding, top_k=args.top_k)
-
-    # O embedder de retrieval ja fez seu trabalho; liberar sua VRAM agora da
-    # mais espaço para o Qwen2.5-VL durante o generate() de cada legenda.
-    del embedder
-    if torch.cuda.is_available():
-        torch.cuda.empty_cache()
-
-    describer = None
-    text_model = None
-    if need_caption:
-        from sentence_transformers import SentenceTransformer
-        from .vlm_describer import Qwen2VLDescriber
-
-        describer = Qwen2VLDescriber()
-        # CPU de proposito: o calculo de confianca so processa 2 frases curtas
-        # por resultado, custo irrelevante. Mantendo isso fora da GPU libera
-        # ~1GB de VRAM para o Qwen2.5-VL.
-        text_model = SentenceTransformer(CONFIDENCE_MODEL, device="cpu")
+    results = run_search(
+        args.query,
+        args.index,
+        top_k=args.top_k,
+        with_caption=not args.no_caption,
+    )
 
     if not results:
         print("Indice vazio.")
         return
 
     print(f"Resultados para: '{args.query}'")
-    for score, rec in results:
-        minutes, seconds = divmod(rec.timestamp_sec, 60)
+    for r in results:
+        minutes, seconds = divmod(r.timestamp_sec, 60)
         line = (
-            f"  t={int(minutes):02d}:{seconds:05.2f}  frame={rec.index:6d}  "
-            f"retrieval_score={score:.4f}"
+            f"  t={int(minutes):02d}:{seconds:05.2f}  frame={r.frame_index:6d}  "
+            f"retrieval_score={r.retrieval_score:.4f}"
         )
-        if describer is not None and rec.video_path:
-            image = extract_frame_at(rec.video_path, rec.timestamp_sec)
-            caption = describer.describe_for_query(image, args.query)
-            text_emb = text_model.encode([args.query, caption], normalize_embeddings=True)
-            confidence = float(np.dot(text_emb[0], text_emb[1]))
-            line += f"  confianca={confidence * 100:.1f}%  legenda='{caption}'"
-        line += f"  video={rec.video}"
+        if r.confidence is not None:
+            line += f"  confianca={r.confidence * 100:.1f}%  legenda='{r.caption}'"
+        line += f"  video={r.video}"
         print(line)
 
 
