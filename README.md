@@ -222,6 +222,75 @@ segurança elevada) — o VLM de reranking também tende a confirmar o objeto
 errado nesses casos (zero-shot embeddings têm dificuldade em distinções
 visuais finas). Considerada aceitável; ver discussão na dissertação.
 
+### Limitação de retrieval: SigLIP perde recall em sujeito secundário numa cena com "hub"
+
+Teste com `teste02.mp4`, query "uma mulher com cabelos escuros, tênis brancos
+e usando uma mochila nas costas" (índice com 56 frames, intervalo ~2s,
+`top_k=12`). Inspeção manual do vídeo confirmou que a mulher descrita
+aparece com clareza em **t=95,32s** (frame 48), caminhando em direção à
+porta da loja — visível, não oclusa, em escala comparável à de outras
+pessoas no quadro.
+
+**O SigLIP rankeou esse frame em 40º lugar de 56** (score -0,1029) — bem
+fora do `top_k=12`, então o reranking por VLM nunca chegou a avaliá-lo.
+Confirmado manualmente: ao rodar o Qwen2.5-VL **diretamente** sobre esse
+frame (fora do pipeline normal), ele identifica a mulher corretamente, com
+67,1% de confiança — ou seja, **o reranking funcionaria se tivesse recebido
+o frame**; o gargalo é só o retrieval.
+
+**Hipótese investigada 1 (descartada por evidência visual)**: o sujeito
+estaria pequeno/distante demais para o SigLIP discriminar. Refutada por
+inspeção visual direta do frame — a mulher está visível e em escala normal,
+comparável à de outras pessoas na cena.
+
+**Hipótese investigada 2 (confirmada parcialmente, mas mitigação testada
+falhou)**: o frame que ficou em 1º lugar no retrieval original (t=89,36s)
+é um **"hub"** — um embedding que pontua anomalamente alto contra **qualquer**
+texto, fenômeno documentado em espaços de embedding de alta dimensão
+(hubness, Radovanović et al.). Evidência: rankeando esse mesmo frame contra
+20 queries genéricas e **não relacionadas** à cena (ex.: "uma montanha
+nevada", "um carro azul estacionado"), ele ficou entre os 10 primeiros (de
+56) em **10 das 20** queries:
+
+| Query (não relacionada à cena) | Rank do frame t=89,36s |
+|---|---|
+| "uma montanha nevada" | 2º/56 |
+| "um carro azul estacionado" | 2º/56 |
+| "um gato preto em cima do sofá" | 2º/56 |
+| "uma xícara de café fumegante" | 2º/56 |
+| "uma ponte sobre um rio" | 3º/56 |
+
+Isso é real, mas **a tentativa de mitigação (subtrair de cada frame sua
+similaridade média contra um conjunto de referência de 20 queries
+genéricas, técnica relacionada a CSLS) não corrigiu o ranking** — testado
+com a média sobre as top-3, top-5, top-8 e todas as 20 referências; em
+nenhum dos quatro casos o frame correto (t=95,32s) subiu para perto do
+top-12 (ficou entre 38º e 43º em todos). O motivo: o "bias" médio do frame
+correto contra o conjunto de referência é **parecido ou até maior** (em
+módulo) do que o do frame-hub, então subtrair o bias não fecha a diferença
+no score da query real.
+
+**Conclusão (em aberto)**: o efeito hub é real e mensurável, mas não explica
+sozinho a perda de recall, e a correção simples testada não funciona. A
+explicação mais provável, ainda não comprovada por mitigação eficaz, é a
+limitação conhecida de embeddings globais (um vetor por imagem) tipo
+SigLIP/CLIP: o frame que venceu no retrieval mostra a mulher **dominando o
+quadro** (close-up, câmera próxima), enquanto no frame correto ela é só uma
+entre várias pessoas num quadro amplo e visualmente cheio — o sinal
+semântico dela se dilui no embedding global da cena. Mitigações reais
+exigiriam uma mudança de arquitetura (ex.: detecção de pessoa + reembedding
+por recorte, em vez de um único vetor para o frame inteiro) — fora do
+escopo atual, registrado como trabalho futuro.
+
+**Tentativa de mitigação prática (parcialmente descartada)**: a ideia óbvia
+seria aumentar `--top-k` para o reranking por VLM alcançar o frame. Mas o
+frame correto está em **40º lugar de 56** — aumentar `--top-k` para algo
+como 20-25 não seria suficiente; seria preciso `top_k≈40`, ou seja, quase o
+índice inteiro, o que deixa de ser uma filtragem útil e aproxima o custo de
+`generate()` do "legendar tudo" que a otimização de latência evitou. Para
+este caso específico, aumentar `top_k` não é uma mitigação prática — reforça
+que a causa é estrutural (embedding global) e não um limiar mal calibrado.
+
 ### VLM de legendagem: Qwen2.5-VL-3B vs. Moondream2
 
 Com a busca otimizada (ver "Otimização da latência de busca" em
