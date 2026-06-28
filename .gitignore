@@ -11,6 +11,9 @@ __pycache__/
 # ver vlm_describer.py / hf_utils.py) -- grande (GBs) e reproduzivel.
 04_dados/models/
 
+# Saida gerada por scripts/benchmark_optimizations.py -- reproduzivel.
+03_codigo/scripts/_benchmark_out/
+
 # Configuracao local do Claude Code
 .claude/settings.local.json
 .claude/scheduled_tasks.lock

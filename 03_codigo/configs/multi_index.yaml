@@ -1,0 +1,15 @@
+motion_detection:
+  enabled: true
+  resize_width: 320
+  resize_height: 180
+  pixel_threshold: 25
+  motion_ratio: 0.02
+
+batch:
+  enabled: true
+  batch_size: 16
+  timeout_ms: 200
+
+embedding_filter:
+  enabled: true
+  similarity_threshold: 0.97
