@@ -33,7 +33,6 @@ O resultado será disponibilizado como microsserviço.
   raw/                    Vídeos de teste e frames de validação
   index/                  Índices SigLIP gerados (embeddings.npy + records.json)
   models/                 Cache local de pesos já quantizados (Qwen2.5-VL 4-bit), gerado na 1ª busca
-05_experimentos/          Resultados, métricas e logs
 ```
 
 ## Pipeline implementado
