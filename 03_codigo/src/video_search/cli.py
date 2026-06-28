@@ -1,14 +1,10 @@
 """CLI: indexar um vídeo e buscar frames por descrição em linguagem natural.
 
-A indexacao gera apenas embeddings (rapido, todos os frames). A legenda
-(Qwen2.5-VL) e a confianca textual sao calculadas sob demanda, apenas para os
-top-K resultados de uma busca.
+A indexacao gera apenas embeddings SigLIP (rapido, todos os frames). A
+legenda (Qwen2.5-VL) e a confianca textual sao calculadas sob demanda,
+apenas para os top-K resultados de uma busca.
 
-Modelo de embedding: SigLIP multilingual base-patch16-256 (Apache 2.0).
-Suporte nativo a PT (sem necessidade de traducao da query).
-
-A logica de indexacao/busca vive em `pipeline.py`, compartilhada com a API
-HTTP (`api.py`).
+A logica de indexacao/busca vive em `pipeline.py`.
 
 Exemplos:
     python -m video_search.cli index video.mp4 --output index/video --interval 2
@@ -16,7 +12,9 @@ Exemplos:
 """
 
 import argparse
+import json
 import sys
+from pathlib import Path
 
 from .pipeline import run_index, run_search
 
@@ -35,11 +33,45 @@ def cmd_index(args: argparse.Namespace) -> None:
     )
     print(
         f"Indice salvo em '{summary.output_dir}' ({summary.frame_count} frames, "
-        f"modelo={summary.model_name}, intervalo={args.interval}s)"
+        f"intervalo={args.interval}s)"
     )
 
 
+def cmd_index_multi(args: argparse.Namespace) -> None:
+    import logging
+
+    from .config import MultiIndexConfig
+    from .multi_index import CameraSource, run_multi_index
+
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(threadName)s %(name)s %(levelname)s %(message)s",
+    )
+
+    config = MultiIndexConfig.load(args.config)
+    sources = [
+        CameraSource(
+            camera_id=Path(video).stem,
+            video_path=video,
+            output_dir=str(Path(args.output) / Path(video).stem),
+        )
+        for video in args.videos
+    ]
+
+    summaries = run_multi_index(sources, config=config, interval=args.interval)
+    for s in summaries:
+        print(
+            f"[{s.camera_id}] {s.frame_count}/{s.frames_read} frames aceitos -> '{s.output_dir}' "
+            f"(motion={s.frames_discarded_motion}, similarity={s.frames_discarded_similarity})"
+        )
+
+
 def cmd_search(args: argparse.Namespace) -> None:
+    meta_path = Path(args.index) / "metadata.json"
+    if meta_path.exists():
+        with open(meta_path, encoding="utf-8") as f:
+            print(f"[Indice: modelo={json.load(f).get('model_name', 'siglip')}]")
+
     results = run_search(
         args.query,
         args.index,
@@ -71,7 +103,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_index = sub.add_parser("index", help="Extrai frames e gera embeddings")
     p_index.add_argument("video", help="Caminho do arquivo de video")
     p_index.add_argument("--output", default="index", help="Pasta onde salvar o indice")
-    p_index.add_argument("--interval", type=float, default=1.0, help="Intervalo entre frames (s)")
+    p_index.add_argument("--interval", type=float, default=2.0, help="Intervalo entre frames (s)")
     p_index.add_argument("--batch-size", type=int, default=16, help="Tamanho do lote para inferencia")
     p_index.add_argument(
         "--limit",
@@ -80,6 +112,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="Limita o numero de frames processados (0 = sem limite; util para testes)",
     )
     p_index.set_defaults(func=cmd_index)
+
+    p_multi = sub.add_parser(
+        "index-multi",
+        help="Indexa multiplos videos/cameras concorrentemente (motion detection + batch cross-camera + filtro de similaridade)",
+    )
+    p_multi.add_argument("videos", nargs="+", help="Caminhos dos videos (um por camera)")
+    p_multi.add_argument("--output", default="index", help="Pasta base; cada camera grava em <output>/<camera_id>")
+    p_multi.add_argument(
+        "--config",
+        default=None,
+        help="Caminho do YAML de configuracao (default: parametros padrao, ver configs/multi_index.yaml)",
+    )
+    p_multi.add_argument("--interval", type=float, default=2.0, help="Intervalo entre frames (s)")
+    p_multi.set_defaults(func=cmd_index_multi)
 
     p_search = sub.add_parser("search", help="Busca frames por descricao em texto")
     p_search.add_argument("query", help="Descricao em linguagem natural")

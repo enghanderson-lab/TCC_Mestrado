@@ -14,18 +14,25 @@ O resultado será disponibilizado como microsserviço.
 01_revisao_bibliografica/ Mapeamento de literatura, candidatos a VLM
 02_dissertacao/           Documento da dissertação (LaTeX/abnTeX2)
 03_codigo/                Implementação do pipeline
-  API.md                  Guia de uso da API HTTP (endpoints, exemplos)
+  configs/
+    multi_index.yaml      Config do pipeline multi-câmera (motion/batch/similaridade)
   src/video_search/
-    cli.py                Ponto de entrada CLI: comandos index e search
-    api.py                Microsserviço HTTP (FastAPI): endpoints index/search
-    pipeline.py           run_index/run_search — lógica compartilhada por cli.py e api.py
+    cli.py                Ponto de entrada CLI: comandos index, index-multi e search
+    pipeline.py           run_index/run_search — lógica usada por cli.py
     siglip_embedder.py    SigLIPEmbedder — encoder multilingue (Apache 2.0)
     vlm_describer.py      Qwen2VLDescriber — legenda condicionada a query
     embedding_store.py    Índice em memória (numpy), com metadata.json
     frame_extractor.py    Extração de frames por timestamp (OpenCV)
+    config.py             Schema (pydantic) do YAML de configuração multi-câmera
+    motion_filter.py      MotionFilter — descarta frames sem mudança significativa
+    embedding_filter.py   EmbeddingSimilarityFilter — descarta embeddings redundantes
+    batch_dispatcher.py   BatchDispatcher — agrupa frames de várias câmeras num lote de GPU
+    multi_index.py        run_multi_index — orquestra N câmeras com as 3 otimizações
+    hf_utils.py           load_offline_first — pula round-trip ao HF Hub p/ modelo já em cache
 04_dados/
   raw/                    Vídeos de teste e frames de validação
   index/                  Índices SigLIP gerados (embeddings.npy + records.json)
+  models/                 Cache local de pesos já quantizados (Qwen2.5-VL 4-bit), gerado na 1ª busca
 05_experimentos/          Resultados, métricas e logs
 ```
 
@@ -59,6 +66,83 @@ Query em português
 O VLM (Qwen2.5-VL) roda apenas sobre os top-K resultados do SigLIP — nunca em
 todos os frames.
 
+### Otimização da latência de busca
+
+Uma busca com legenda (top_k=12) chegou a levar **~73s**, e quase tudo era
+*carregamento de modelo*, não geração de texto:
+
+| Etapa | Antes | Depois | O que mudou |
+|---|---|---|---|
+| Carregar SigLIP | ~9s | ~1,4s | `local_files_only=True` evita round-trip ao Hugging Face Hub quando o modelo já está em cache (ver `hf_utils.load_offline_first`) |
+| Extrair os 12 frames | ~5,4s | ~3,7s | `extract_frames_at` abre o vídeo uma única vez e faz seek de todos os timestamps, em vez de reabrir o arquivo por resultado |
+| **Carregar Qwen2.5-VL 4-bit** | **~33s** | **~3,8s** | A quantização NF4 (bitsandbytes) é recalculada na CPU a cada `from_pretrained` — agora o modelo já quantizado é cacheado em `04_dados/models/qwen25vl3b-nf4/` na 1ª execução e as próximas carregam os pesos prontos (mesmo checkpoint, mesma config de quantização — sem trocar de modelo) |
+| Gerar as 12 legendas | ~11s/legenda (estimado, sequencial) | ~10s **para as 12 juntas** | `describe_for_query_batch`: uma única chamada a `generate()` para todo o lote, em vez de uma por imagem |
+| Carregar sentence-transformer | ~6s | ~2-5s | mesmo truque de `local_files_only=True` |
+| **Total medido (CLI, ponta a ponta)** | **~73s** | **~37s** | |
+
+Não chegou aos <15s pedidos: o piso restante é, na prática, carregar 3
+modelos + correr generate() em GPU dentro de um processo que nasce e morre a
+cada busca. Testado e descartado nesse caminho:
+
+- **Checkpoint 4-bit pré-quantizado de terceiros** (`unsloth/...`): carregaria
+  em ~4s, mas quebra durante a geração (erro interno do bitsandbytes,
+  incompatível com as versões instaladas) — e trocaria o checkpoint usado
+  nos experimentos de validação já documentados nesta seção, então foi
+  descartado.
+- **Reduzir `top_k` legendado**: testado com 5/8/12 imagens no mesmo lote —
+  efeito quase nulo (a GPU absorve o lote sem saturar), não é uma alavanca
+  útil aqui.
+- **Reduzir `max_new_tokens`** (40→16): corta ~35% do tempo de geração
+  (9,8s→6,4s), mas encurta a legenda — troca qualidade por velocidade, não
+  aplicado por padrão.
+
+Para cravar <15s de forma confiável restaria manter os modelos carregados
+entre buscas (processo residente) — exatamente o papel que o microsserviço
+HTTP cumpriria; ver "Microsserviço HTTP (deferido)" abaixo.
+
+### Estágio 1b — Indexação otimizada para múltiplas câmeras (`index-multi`)
+
+Para viabilizar ~8 câmeras simultâneas sem explodir o custo de GPU, a
+indexação ganhou um caminho alternativo (`run_multi_index`, comando
+`index-multi`) com três otimizações em cima do Estágio 1, todas configuráveis
+num único YAML (`configs/multi_index.yaml`):
+
+```
+Vídeo (uma thread leitora por câmera)
+  └─ Detecção de movimento (OpenCV, resize+grayscale+absdiff vs. último frame
+     ACEITO daquela câmera) → descarta frames quase idênticos
+       └─ Fila compartilhada entre câmeras
+            └─ Batch Inference (SigLIP) — um único encode_images() por lote,
+               podendo misturar frames de câmeras diferentes
+                 └─ Filtro de similaridade de embeddings (cosseno vs. último
+                    embedding ACEITO daquela câmera) → descarta frames
+                    redundantes, sem legendar
+                      └─ Legenda (Qwen2.5-VL) só para os frames que sobraram
+                           └─ embeddings.npy + records.json (campo `caption`
+                              populado) — mesmo formato do Estágio 1
+```
+
+Cada câmera mantém estado independente (último frame aceito, último
+embedding aceito) — nunca comparado entre câmeras diferentes. `run_index`/
+`run_search`/CLI/API existentes não foram alterados; é um ponto de entrada
+aditivo que reaproveita `SigLIPEmbedder`/`Qwen2VLDescriber`.
+
+**Benchmark (1 vídeo, 15 frames, RTX 4060):**
+
+| Etapa | Sem otimizações | Com otimizações |
+|---|---|---|
+| Indexação (SigLIP) | 16,12s (15 frames) | ~4,2s (motion 0,26s + espera de lote 3,94s) |
+| VLM (legenda) | 114,99s — todos os 15 frames (7,67s/frame) | 41,28s — só 6/15 frames (9 redundantes descartados) |
+| **Total** | **131,11s** | **87,66s** (-33%) |
+
+Reprodutível com `03_codigo/scripts/benchmark_optimizations.py video.mp4`.
+
+Em validação com 3 câmeras simultâneas (183 frames lidos no total), o filtro
+de similaridade reduziu as chamadas ao VLM em 76% (183 → 44 frames
+legendados) e os logs confirmaram lotes de SigLIP misturando frames de
+câmeras diferentes (ex.: `lote executado tamanho=3` no primeiro flush, com
+uma câmera de cada fonte) — evidência direta do batching cross-câmera.
+
 ## Modelos utilizados
 
 | Modelo | Papel | Licença |
@@ -75,39 +159,23 @@ cd 03_codigo
 $env:PYTHONPATH = "src"
 
 # Indexar um vídeo (SigLIP)
-python -m video_search.cli index "video.mp4" --output "..\04_dados\index\meu_video" --interval 1
+python -m video_search.cli index "video.mp4" --output "..\04_dados\index\teste9" --interval 1
 
 # Buscar
-python -m video_search.cli search "homem com caderno de anotações" --index "..\04_dados\index\meu_video"
+
+.venv\Scripts\python.exe -m video_search.cli search "procure por um carro branco com uma escada sobre o teto" --index ..\04_dados\index\teste7_siglip
+.venv\Scripts\python.exe -m video_search.cli search "procure por uma van" --index ..\04_dados\index\teste6_siglip
+
 
 # Buscar sem VLM (apenas SigLIP, mais rápido)
 python -m video_search.cli search "homem com caderno de anotações" --index "..\04_dados\index\meu_video" --no-caption
+
+# Indexar várias câmeras simultaneamente (motion detection + batch cross-câmera + filtro de similaridade)
+python -m video_search.cli index-multi cam1.mp4 cam2.mp4 cam3.mp4 --output ..\04_dados\index --config configs\multi_index.yaml
 ```
 
-### Via microsserviço HTTP
-
-```powershell
-cd 03_codigo
-.\.venv\Scripts\Activate.ps1
-$env:PYTHONPATH = "src"
-uvicorn video_search.api:app --host 0.0.0.0 --port 8000
+.venv\Scripts\python.exe -m video_search.cli search "procure por uma van escolar" --index ..\04_dados\index\teste9_siglip
 ```
-
-| Método | Rota | Descrição |
-|--------|------|-----------|
-| GET | `/health` | Sanity check |
-| GET | `/indexes` | Lista índices existentes (nome, nº de frames, modelo) |
-| POST | `/index` | `{video_path, name, interval, batch_size, limit}` → dispara indexação em background, retorna `{job_id, status}` |
-| GET | `/index/jobs/{job_id}` | Status do job (`queued`/`running`/`done`/`error`) |
-| POST | `/search` | `{query, index, top_k, with_caption}` → lista de resultados (frame, score, confiança, legenda) |
-
-`video_path` é um caminho em disco acessível ao processo do serviço (sem
-upload via multipart — vídeos de horas não cabem num upload HTTP razoável).
-`name`/`index` são resolvidos dentro de `04_dados/index` (configurável via
-`VIDEO_SEARCH_INDEX_ROOT`).
-
-Guia completo com exemplos de requisição/resposta para cada endpoint:
-[03_codigo/API.md](03_codigo/API.md).
 
 ## Achados de validação
 
@@ -154,6 +222,33 @@ visualmente parecidos (ex.: escada vs. rack de teto em vídeo de câmera de
 segurança elevada) — o VLM de reranking também tende a confirmar o objeto
 errado nesses casos (zero-shot embeddings têm dificuldade em distinções
 visuais finas). Considerada aceitável; ver discussão na dissertação.
+
+### VLM de legendagem: Qwen2.5-VL-3B vs. Moondream2
+
+Com a busca otimizada (ver "Otimização da latência de busca" em
+[03_codigo/README.md](03_codigo/README.md#otimização-da-latência-de-busca)),
+avaliou-se a troca do Qwen2.5-VL-3B pelo **Moondream2** (`vikhyatk/moondream2`,
+Apache 2.0, ~2B parâmetros) como modelo de legendagem, por ser um VLM menor e
+anunciado como mais rápido. A avaliação foi prática (tentativas reais de
+carregar e rodar o modelo no ambiente do projeto), não apenas leitura de
+documentação, e resultou na **rejeição da troca**:
+
+| Critério | Qwen2.5-VL-3B (atual) | Moondream2 |
+|---|---|---|
+| Licença | Apache 2.0 | Apache 2.0 |
+| Parâmetros | 3B (cache 4-bit, ~2,4GB VRAM) | ~2B (sem 4-bit simples via `transformers`) |
+| Geração em lote (batch) | Sim — testado e em produção (`describe_for_query_batch`, ver seção de latência) | Não documentado; benchmarks externos confirmam que "Moondream doesn't handle batching" |
+| Suporte a português | Nativo, validado nos experimentos acima | Sem documentação de multilíngue; tokenizer ("superword") focado em inglês |
+| Instalação no Windows | Só `pip` (`transformers`, `bitsandbytes`) | Exige `trust_remote_code=True` + `einops` + `pyvips`, que por sua vez exige a DLL nativa `libvips-42.dll` — **falhou** no ambiente do projeto: `OSError: cannot load library 'libvips-42.dll'` |
+| Compatibilidade de versão | Estável com `transformers==5.12.0` (instalado) | Revisões antigas (sem `pyvips`) quebram no `transformers` atual: `AttributeError: 'PhiConfig' object has no attribute 'pad_token_id'` |
+
+**Decisão**: manter o Qwen2.5-VL-3B. Os dois pontos que mais importam para
+este pipeline — geração em lote (que já cortou ~26s da busca) e suporte
+nativo a português (requisito de design desde a escolha do SigLIP sobre
+CLIP, ver acima) — não são garantidos no Moondream2, e a instalação no
+Windows depende de uma biblioteca nativa frágil (`libvips`). O ganho de
+tamanho de modelo (2B vs. 3B) também já havia sido absorvido pelo cache do
+checkpoint 4-bit (ver seção de latência).
 
 ### Reranking por confiança corrige erros do retrieval
 
@@ -224,9 +319,20 @@ está pronto no momento em que a busca é necessária.
 Protótipo planejado: novo comando `stream-index` no CLI com suporte a URLs
 RTSP e RTMP via OpenCV.
 
-### 2. Endurecer o microsserviço FastAPI para produção
+### 2. Microsserviço HTTP (deferido)
 
-O microsserviço (`api.py`) já expõe `index`/`search` via HTTP (ver seção
-"Uso rápido"), mas fora de escopo na v1: autenticação/autorização (assumido
-em rede interna por ora) e persistência dos jobs de indexação em disco/banco
-(hoje em memória, perdidos ao reiniciar o processo).
+Um microsserviço FastAPI (`index`/`search` via HTTP) foi prototipado e
+depois removido para focar a otimização de desempenho do pipeline via CLI
+(ver seção "Otimização da latência de busca"). Retomar como evolução futura,
+já considerando autenticação/autorização e persistência dos jobs de
+indexação em disco/banco (em vez de em memória).
+
+
+
+### 3. Implementado: motion detection, batch cross-câmera e filtro de similaridade
+
+As três ideias acima (extrator de frame por mudança de pixel, evitar
+reprocessar vetores redundantes, processar vários vídeos ao mesmo tempo)
+foram implementadas no comando `index-multi` — ver seção "Estágio 1b" acima
+para a arquitetura e o benchmark.
+

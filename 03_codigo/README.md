@@ -1,11 +1,12 @@
 # Código
 
-Implementação do pipeline de busca semântica em vídeo e do microsserviço.
+Implementação do pipeline de busca semântica em vídeo.
 
 ```
 .venv/      Ambiente virtual Python (não versionar)
+configs/    Config YAML do pipeline multi-câmera (motion/batch/similaridade)
 src/        Pacote video_search: extração de frames, embeddings, índice, CLI
-scripts/    Scripts utilitários (smoke tests, etc.)
+scripts/    Scripts utilitários (smoke tests, benchmark, etc.)
 tests/      Testes automatizados (pytest)
 ```
 
@@ -37,12 +38,13 @@ python -m venv .venv
 
 ## Pipeline atual
 
-Baseline usando **SigLIP multilingual** (`google/siglip-base-patch16-256-multilingual`,
-licença Apache 2.0) para embeddings de imagem e texto no mesmo espaço
-vetorial, com suporte nativo a português (sem necessidade de tradução de
-query). Busca por similaridade de cosseno (força bruta em numpy — adequado
-até centenas de milhares de frames). Ver achados de validação e a evolução
-CLIP → M-CLIP → SigLIP no [README do projeto](../README.md#achados-de-validação).
+Pipeline usando exclusivamente **SigLIP multilingual**
+(`google/siglip-base-patch16-256-multilingual`, licença Apache 2.0) para
+embeddings de imagem e texto no mesmo espaço vetorial, com suporte nativo a
+português (sem necessidade de tradução de query). Busca por similaridade de
+cosseno (força bruta em numpy — adequado até centenas de milhares de
+frames). Ver achados de validação e a evolução CLIP → M-CLIP → SigLIP no
+[README do projeto](../README.md#achados-de-validação).
 
 ```powershell
 # Indexar um vídeo (extrai 1 frame por segundo por padrão)
@@ -50,6 +52,21 @@ CLIP → M-CLIP → SigLIP no [README do projeto](../README.md#achados-de-valida
 
 # Buscar por descrição em linguagem natural
 .venv\Scripts\python.exe -m video_search.cli search "homem de camisa branca e bone vermelho" --index index\camera1
+```
+
+### Indexação multi-câmera (motion detection + batch + filtro de similaridade)
+
+Para indexar várias câmeras/vídeos ao mesmo tempo com menos chamadas de GPU
+(ver detalhes e benchmark no [README do projeto](../README.md#estágio-1b--indexação-otimizada-para-múltiplas-câmeras-index-multi)):
+
+```powershell
+.venv\Scripts\python.exe -m video_search.cli index-multi cam1.mp4 cam2.mp4 cam3.mp4 --output ..\04_dados\index --config configs\multi_index.yaml
+```
+
+Benchmark antes/depois das otimizações, num único vídeo:
+
+```powershell
+.venv\Scripts\python.exe scripts\benchmark_optimizations.py caminho\do\video.mp4
 ```
 
 Rodar os testes:
@@ -64,15 +81,6 @@ Smoke test do Qwen2.5-VL (baixa os pesos do modelo na primeira execução):
 .venv\Scripts\python.exe scripts\smoke_test_qwen2vl.py
 ```
 
-## Microsserviço HTTP
-
-```powershell
-.venv\Scripts\python.exe -m uvicorn video_search.api:app --port 8000
-```
-
-Guia completo de uso da API (endpoints, exemplos de requisição/resposta,
-fluxo indexar→buscar): [API.md](API.md).
-
 ## Limitações conhecidas / próximos passos
 
 - SigLIP dá um score de similaridade, não uma "confiança" calibrada — por
@@ -84,8 +92,8 @@ fluxo indexar→buscar): [API.md](API.md).
 - Limitação residual: confusão entre objetos visualmente parecidos (ex.:
   escada vs. rack de teto) — tanto no retrieval do SigLIP quanto no
   reranking do VLM.
-- Microsserviço FastAPI (`api.py`) implementado — ver [API.md](API.md). Falta
-  autenticação e persistência dos jobs de indexação (hoje em memória).
+- Microsserviço HTTP (`api.py`) removido por ora — uso via CLI apenas;
+  retomar a API como evolução futura.
 
 ## Ideias de stack (a confirmar)
 

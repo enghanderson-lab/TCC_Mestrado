@@ -24,6 +24,8 @@ import torch
 from PIL import Image
 from transformers import SiglipModel, AutoProcessor
 
+from .hf_utils import load_offline_first
+
 
 class SigLIPEmbedder:
     MODEL_NAME = "google/siglip-base-patch16-256-multilingual"
@@ -33,11 +35,13 @@ class SigLIPEmbedder:
     def __init__(self, device: Optional[str] = None) -> None:
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.model = (
-            SiglipModel.from_pretrained(self.MODEL_NAME, torch_dtype=torch.bfloat16)
+            load_offline_first(
+                SiglipModel.from_pretrained, self.MODEL_NAME, torch_dtype=torch.bfloat16
+            )
             .to(self.device)
             .eval()
         )
-        self.processor = AutoProcessor.from_pretrained(self.MODEL_NAME)
+        self.processor = load_offline_first(AutoProcessor.from_pretrained, self.MODEL_NAME)
 
     def _encode_image(self, pixel_values: torch.Tensor) -> torch.Tensor:
         # SigLIP nao tem camadas de projecao separadas — pooler_output ja e o
