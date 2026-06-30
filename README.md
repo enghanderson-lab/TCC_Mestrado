@@ -318,6 +318,46 @@ Windows depende de uma biblioteca nativa frágil (`libvips`). O ganho de
 tamanho de modelo (2B vs. 3B) também já havia sido absorvido pelo cache do
 checkpoint 4-bit (ver seção de latência).
 
+### VLM de legendagem: Qwen2.5-VL-3B vs. Florence-2-large
+
+Avaliou-se também o **Florence-2-large** (`microsoft/Florence-2-large`,
+MIT, 770M parâmetros) como alternativa mais leve. Florence-2 é um modelo
+seq2seq (encoder-decoder, arquitetura tipo BART) orientado a tarefas
+específicas via task tokens (`<CAPTION>`, `<VQA>` etc.), treinado no
+dataset FLD-5B (inglês). O modelo carregou sem erros (6,3s, 1 869 MB
+VRAM — mais leve que o Qwen), porém a avaliação prática resultou na
+**rejeição por incompatibilidade com `transformers==5.12.0`**:
+
+| # | Arquivo no código customizado (`trust_remote_code`) | Erro em `transformers` 5.x | Corrigível? |
+|---|---|---|---|
+| 1 | `configuration_florence2.py:265` | `AttributeError: 'Florence2LanguageConfig' has no attribute 'forced_bos_token_id'` | Sim (getattr) |
+| 2 | `modeling_florence2.py:2532` | `AttributeError: 'Florence2ForConditionalGeneration' has no attribute '_supports_sdpa'` | Sim (class attr) |
+| 3 | `processing_florence2.py:89` | `AttributeError: RobertaTokenizer has no attribute additional_special_tokens` | Sim (getattr) |
+| 4 | `modeling_florence2.py:2611` | `AssertionError: only support square feature maps` (imagem 634×360 → DaViT não-quadrado) | Sim (pad-to-square) |
+| 5 | `modeling_florence2.py:2197` | `TypeError: 'EncoderDecoderCache' object is not subscriptable` (API de cache mudou no 5.x) | **Não** — requer reescrever `prepare_inputs_for_generation` |
+
+Após os quatro primeiros patches, o modelo carregou mas o `generate()` falhou
+no bug 5, que está dentro do loop de beam search e exige reimplementação não
+trivial do código de geração. O padrão é idêntico ao Moondream2: código
+`trust_remote_code` escrito para `transformers` 4.x sem atualização compatível
+com 5.x.
+
+Limitações adicionais que persistiriam mesmo após corrigir os bugs:
+
+| Critério | Qwen2.5-VL-3B (atual) | Florence-2-large |
+|---|---|---|
+| Arquitetura | Decoder-only (instruction-following livre) | Seq2seq com task tokens fixos |
+| Instruction-following em PT | Sim — prompt livre nativo | Não — treinado em FLD-5B (inglês); VQA com query em PT não documentado |
+| Geração em lote (batch) | Sim | Sim (seq2seq é nativo para batch) |
+| Params / VRAM | 3B → 4-bit cache ~2,4 GB | 770M → fp16 ~1,9 GB (sem quantização) |
+| Compatibilidade `transformers` 5.x | Estável | **Incompatível** (5 bugs no código customizado) |
+
+**Decisão**: manter o Qwen2.5-VL-3B. Florence-2 seria mais leve em VRAM,
+mas não executa no ambiente do projeto sem manter um fork corrigido do código
+customizado. Além disso, o suporte a português e o instruction-following livre
+(necessário para a legenda condicionada à query) são pontos críticos para os
+quais Florence-2 não oferece garantias.
+
 ### Reranking por confiança corrige erros do retrieval
 
 Teste com `teste05.mp4`, query "homem com caderno de anotações" (na época,
