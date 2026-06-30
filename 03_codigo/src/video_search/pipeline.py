@@ -1,11 +1,13 @@
 """Logica de indexacao e busca, usada pela CLI.
 
-Serializa o uso da GPU com um lock global: indexacao e busca carregam e
-liberam o SigLIP/Qwen2.5-VL na VRAM (ver `vlm_describer.py`), e os dois
-modelos grandes residentes ao mesmo tempo causam offload parcial para CPU
-mesmo numa GPU de 8GB. Permitir indexacao e busca concorrentes duplicaria
-esse risco, por isso cada chamada a `run_index`/`run_search` adquire o
-mesmo lock antes de tocar a GPU.
+Serializa o uso da GPU com um lock global: os modelos residentes (SigLIP e
+Qwen2.5-VL) sao mantidos pelo ModelManager e compartilhados entre chamadas.
+`_gpu_lock` garante que apenas uma chamada de GPU ocorra por vez -- indexacao
+e busca concorrentes com GPU compartilhada causariam OOM ou corridas de
+condicao nas operacoes de encode/generate.
+
+Nenhuma instanciacao direta de AutoModel ou AutoProcessor acontece aqui:
+tudo passa pelo ModelManager (get_model_manager() / model_manager param).
 """
 
 import threading
@@ -20,15 +22,18 @@ from PIL.Image import Image
 
 from .embedding_store import EmbeddingStore, FrameRecord
 from .frame_extractor import extract_frames, extract_frames_at
-from .siglip_embedder import SigLIPEmbedder
 
 CONFIDENCE_MODEL = "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
 
 _gpu_lock = threading.Lock()
 
 
-def _make_embedder() -> SigLIPEmbedder:
-    return SigLIPEmbedder()
+def _get_manager(model_manager=None):
+    """Retorna o manager fornecido ou o singleton do modulo."""
+    if model_manager is not None:
+        return model_manager
+    from .model_manager import get_model_manager
+    return get_model_manager()
 
 
 @dataclass
@@ -55,12 +60,18 @@ def run_index(
     batch_size: int = 16,
     limit: int = 0,
     on_progress: Optional[Callable[[int], None]] = None,
+    model_manager=None,
 ) -> IndexSummary:
     """Extrai frames do video, gera embeddings (SigLIP) e salva o indice em
     `output_dir`. `on_progress(frames_processados)` e chamado apos cada
-    lote, se informado."""
+    lote, se informado.
+
+    `model_manager`: instancia de ModelManager a usar. Se None, usa o
+    singleton do modulo (get_model_manager()).
+    """
+    mm = _get_manager(model_manager)
     with _gpu_lock:
-        embedder = _make_embedder()
+        embedder = mm.get_siglip()
         store = EmbeddingStore()
         video_name = Path(video_path).name
         resolved_video_path = str(Path(video_path).resolve())
@@ -96,11 +107,8 @@ def run_index(
         flush()
 
         store.save(output_dir)
-        del embedder
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
 
-        return IndexSummary(output_dir=str(output_dir), frame_count=len(store))
+    return IndexSummary(output_dir=str(output_dir), frame_count=len(store))
 
 
 def run_search(
@@ -108,6 +116,7 @@ def run_search(
     index_dir: str,
     top_k: int = 12,
     with_caption: bool = True,
+    model_manager=None,
 ) -> List[SearchResult]:
     """Busca os top-K frames do indice mais similares a `query`. Quando
     `with_caption` e verdadeiro, gera legenda condicionada a query
@@ -115,19 +124,18 @@ def run_search(
     -- legenda e confianca sao calculadas em LOTE (uma unica chamada de
     `generate()`/`encode()` para todos os resultados) em vez de uma chamada
     por resultado, para manter a busca rapida com top_k>1 (ver
-    `Qwen2VLDescriber.describe_for_query_batch`)."""
+    `Qwen2VLDescriber.describe_for_query_batch`).
+
+    `model_manager`: instancia de ModelManager a usar. Se None, usa o
+    singleton do modulo (get_model_manager()).
+    """
+    mm = _get_manager(model_manager)
     with _gpu_lock:
         store = EmbeddingStore.load(index_dir)
 
-        embedder = _make_embedder()
+        embedder = mm.get_siglip()
         query_embedding = embedder.encode_text([query])[0]
         raw_results = store.search(query_embedding, top_k=top_k)
-
-        # Libera a VRAM do embedder de retrieval antes de carregar o
-        # Qwen2.5-VL (ver docstring do modulo).
-        del embedder
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
 
         results = [
             SearchResult(
@@ -156,15 +164,10 @@ def run_search(
             for idx, frame in zip(indices, extract_frames_at(video_path, timestamps)):
                 images[idx] = frame
 
-        from sentence_transformers import SentenceTransformer
-
-        from .hf_utils import load_offline_first
-        from .vlm_describer import Qwen2VLDescriber
-
-        describer = Qwen2VLDescriber()
+        describer = mm.get_qwen()
         captions = describer.describe_for_query_batch([images[i] for i in captionable], query)
 
-        text_model = load_offline_first(SentenceTransformer, CONFIDENCE_MODEL, device="cpu")
+        text_model = mm.get_sentence_transformer()
         embeddings = text_model.encode([query] + captions, normalize_embeddings=True)
         query_emb, caption_embs = embeddings[0], embeddings[1:]
 
@@ -172,8 +175,4 @@ def run_search(
             results[i].caption = caption
             results[i].confidence = float(np.dot(query_emb, caption_emb))
 
-        del describer
-        if torch.cuda.is_available():
-            torch.cuda.empty_cache()
-
-        return results
+    return results

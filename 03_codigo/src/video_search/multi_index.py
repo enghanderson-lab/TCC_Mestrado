@@ -4,11 +4,15 @@ similaridade de embeddings antes de legendar (Qwen2.5-VL).
 
 Ponto de entrada NOVO e independente de `run_index`/`run_search`
 (`pipeline.py`) -- nao altera nada la, so reaproveita `_gpu_lock`,
-`_make_embedder`, `extract_frames`, `EmbeddingStore`/`FrameRecord` e
-`Qwen2VLDescriber`. A saida (`embeddings.npy`+`records.json`+`metadata.json`)
+`extract_frames`, `EmbeddingStore`/`FrameRecord` e acessa os modelos via
+ModelManager. A saida (`embeddings.npy`+`records.json`+`metadata.json`)
 fica no mesmo formato de hoje, populando o campo `caption` do `FrameRecord`
 (ja existente, sem uso em `run_index`), entao `run_search`/CLI continuam
-funcionando sem mudanca sobre os indices gerados aqui."""
+funcionando sem mudanca sobre os indices gerados aqui.
+
+`_make_embedder` e `_make_describer` sao funcoes de modulo-nivel patcheaveis
+nos testes (monkeypatch.setattr), evitando que o teste precise tocar
+os modelos reais."""
 
 import logging
 import time
@@ -25,8 +29,7 @@ from .embedding_filter import EmbeddingSimilarityFilter
 from .embedding_store import EmbeddingStore, FrameRecord
 from .frame_extractor import extract_frames
 from .motion_filter import MotionFilter
-from .pipeline import _gpu_lock, _make_embedder
-from .vlm_describer import Qwen2VLDescriber
+from .pipeline import _gpu_lock
 
 logger = logging.getLogger(__name__)
 
@@ -52,13 +55,30 @@ class CameraSummary:
     frames_discarded_similarity: int
 
 
+# ------------------------------------------------------------------
+# Factories patcheaveis — permitem monkeypatch nos testes sem tocar
+# nos modelos reais nem no ModelManager.
+# ------------------------------------------------------------------
+
+def _make_embedder():
+    """Retorna o SigLIPEmbedder residente via ModelManager."""
+    from .model_manager import get_model_manager
+    return get_model_manager().get_siglip()
+
+
+def _make_describer():
+    """Retorna o Qwen2VLDescriber residente via ModelManager."""
+    from .model_manager import get_model_manager
+    return get_model_manager().get_qwen()
+
+
 def _process_camera(
     source: CameraSource,
     interval: float,
     motion_filter: MotionFilter,
     embedding_filter: EmbeddingSimilarityFilter,
     dispatcher: BatchDispatcher,
-    describer: Qwen2VLDescriber,
+    describer,
     on_progress: Optional[Callable[[str, int], None]],
 ) -> CameraSummary:
     store = EmbeddingStore()
@@ -148,12 +168,16 @@ def run_multi_index(
     `_gpu_lock` (reaproveitado de `pipeline.py`) e tomado so por chamada de
     GPU (um flush do dispatcher, uma chamada de `describe()`) -- nao pela
     duracao inteira desta funcao -- entao a leitura/motion-filter (CPU) das
-    N cameras progride em paralelo enquanto a GPU processa um lote por vez."""
+    N cameras progride em paralelo enquanto a GPU processa um lote por vez.
+
+    Os modelos (SigLIP e Qwen2.5-VL) sao obtidos via ModelManager e nao
+    sao deletados ao final — o gerenciamento do ciclo de vida e
+    responsabilidade do ModelManager (ou do chamador via unload_models()).
+    """
     config = config or MultiIndexConfig()
 
-    with _gpu_lock:
-        embedder = _make_embedder()
-        describer = Qwen2VLDescriber()
+    embedder = _make_embedder()
+    describer = _make_describer()
 
     motion_filter = MotionFilter(config.motion_detection)
     embedding_filter = EmbeddingSimilarityFilter(config.embedding_filter)
@@ -186,10 +210,5 @@ def run_multi_index(
             summaries = [future.result() for future in futures]
     finally:
         dispatcher.stop()
-        with _gpu_lock:
-            del embedder
-            del describer
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
 
     return summaries

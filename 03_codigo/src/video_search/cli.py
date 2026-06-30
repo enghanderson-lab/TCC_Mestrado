@@ -4,7 +4,9 @@ A indexacao gera apenas embeddings SigLIP (rapido, todos os frames). A
 legenda (Qwen2.5-VL) e a confianca textual sao calculadas sob demanda,
 apenas para os top-K resultados de uma busca.
 
-A logica de indexacao/busca vive em `pipeline.py`.
+Os modelos sao carregados UMA UNICA VEZ no inicio do processo via
+ModelManager e reutilizados durante toda a execucao. A logica de
+indexacao/busca vive em `pipeline.py`.
 
 Exemplos:
     python -m video_search.cli index video.mp4 --output index/video --interval 2
@@ -16,10 +18,11 @@ import json
 import sys
 from pathlib import Path
 
+from .model_manager import ModelConfig, ModelManager
 from .pipeline import run_index, run_search
 
 
-def cmd_index(args: argparse.Namespace) -> None:
+def cmd_index(args: argparse.Namespace, mm: ModelManager) -> None:
     def on_progress(frame_count: int) -> None:
         print(f"Processados {frame_count} frames...")
 
@@ -30,6 +33,7 @@ def cmd_index(args: argparse.Namespace) -> None:
         batch_size=args.batch_size,
         limit=args.limit,
         on_progress=on_progress,
+        model_manager=mm,
     )
     print(
         f"Indice salvo em '{summary.output_dir}' ({summary.frame_count} frames, "
@@ -37,7 +41,7 @@ def cmd_index(args: argparse.Namespace) -> None:
     )
 
 
-def cmd_index_multi(args: argparse.Namespace) -> None:
+def cmd_index_multi(args: argparse.Namespace, mm: ModelManager) -> None:
     import logging
 
     from .config import MultiIndexConfig
@@ -66,7 +70,7 @@ def cmd_index_multi(args: argparse.Namespace) -> None:
         )
 
 
-def cmd_search(args: argparse.Namespace) -> None:
+def cmd_search(args: argparse.Namespace, mm: ModelManager) -> None:
     meta_path = Path(args.index) / "metadata.json"
     if meta_path.exists():
         with open(meta_path, encoding="utf-8") as f:
@@ -77,6 +81,7 @@ def cmd_search(args: argparse.Namespace) -> None:
         args.index,
         top_k=args.top_k,
         with_caption=not args.no_caption,
+        model_manager=mm,
     )
 
     if not results:
@@ -98,6 +103,16 @@ def cmd_search(args: argparse.Namespace) -> None:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Busca semantica em video via SigLIP + Qwen2-VL")
+    parser.add_argument(
+        "--device",
+        default="auto",
+        help="Device dos modelos: 'auto' (default), 'cuda:0', 'cpu'",
+    )
+    parser.add_argument(
+        "--no-warmup",
+        action="store_true",
+        help="Pula o warmup dos modelos apos o carregamento",
+    )
     sub = parser.add_subparsers(dest="command", required=True)
 
     p_index = sub.add_parser("index", help="Extrai frames e gera embeddings")
@@ -146,9 +161,16 @@ def main() -> None:
     # codepage do sistema em vez de UTF-8, e acentos (ç, õ, ã) saem como "?".
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
+
     parser = build_parser()
     args = parser.parse_args()
-    args.func(args)
+
+    config = ModelConfig(
+        device=args.device,
+        enable_warmup=not args.no_warmup,
+    )
+    with ModelManager(config) as mm:
+        args.func(args, mm)
 
 
 if __name__ == "__main__":

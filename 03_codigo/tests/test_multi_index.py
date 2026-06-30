@@ -37,8 +37,10 @@ class FakeDescriber:
 
 
 def test_run_multi_index_two_cameras_with_independent_state(tmp_path, monkeypatch):
+    # _make_embedder e _make_describer sao as factories patcheaveis em multi_index.py;
+    # retornam Fakes sem tocar nos modelos reais nem no ModelManager.
     monkeypatch.setattr(multi_index, "_make_embedder", lambda: FakeEmbedder())
-    monkeypatch.setattr(multi_index, "Qwen2VLDescriber", FakeDescriber)
+    monkeypatch.setattr(multi_index, "_make_describer", lambda: FakeDescriber())
 
     black = (0, 0, 0)
     white = (255, 255, 255)

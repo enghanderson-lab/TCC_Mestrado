@@ -21,6 +21,7 @@ from qwen_vl_utils import process_vision_info
 from transformers import AutoProcessor, BitsAndBytesConfig, Qwen2_5_VLForConditionalGeneration
 
 from .hf_utils import load_offline_first
+from .vlm_abc import VisionLanguageModel
 
 _MAX_IMAGE_SIDE = 768
 
@@ -48,7 +49,19 @@ def _resize_for_vlm(image: Image.Image, max_side: int = _MAX_IMAGE_SIDE) -> Imag
     return image.resize((round(width * scale), round(height * scale)))
 
 
-class Qwen2VLDescriber:
+class Qwen2VLDescriber(VisionLanguageModel):
+    """VLM de legendagem condicionada a query, baseado no Qwen2.5-VL-3B.
+
+    Implementa VisionLanguageModel: load() / warmup() / infer() / unload().
+    Os metodos tipados describe(), describe_for_query() e
+    describe_for_query_batch() continuam disponiveis para uso direto.
+
+    infer() aceita:
+        image=Image, query=str              -> describe_for_query()
+        images=List[Image], query=str       -> describe_for_query_batch()
+        image=Image, prompt=str             -> describe()
+    """
+
     def __init__(
         self,
         model_name: str = "Qwen/Qwen2.5-VL-3B-Instruct",
@@ -57,39 +70,55 @@ class Qwen2VLDescriber:
         quantize: bool = True,
         quant_cache_dir: Optional[Union[str, Path]] = None,
     ) -> None:
+        self._model_name = model_name
         # device_map="auto" manda o accelerate inspecionar a memoria livre de
         # todos os devices (GPU+CPU) e planejar onde colocar cada camada,
         # mesmo havendo só uma GPU -- esse planejamento custa alguns segundos
         # de carregamento sem trazer beneficio quando o modelo (3B em 4-bit,
         # ~2GB) sempre cabe inteiro na GPU. Apontar o device explicitamente
         # pula essa etapa.
-        device = device or ("cuda:0" if torch.cuda.is_available() else "cpu")
-        cache_dir = Path(quant_cache_dir) if quant_cache_dir else _DEFAULT_QUANT_CACHE_DIR
+        self._device_str = device or ("cuda:0" if torch.cuda.is_available() else "cpu")
+        self._dtype = dtype
+        self._quantize = quantize
+        self._quant_cache_dir = Path(quant_cache_dir) if quant_cache_dir else _DEFAULT_QUANT_CACHE_DIR
+        self.model: Optional[Qwen2_5_VLForConditionalGeneration] = None
+        self.processor = None
+        self.load()
 
-        if quantize and (cache_dir / "config.json").exists():
+    # ------------------------------------------------------------------
+    # VisionLanguageModel interface
+    # ------------------------------------------------------------------
+
+    def load(self) -> None:
+        """Carrega pesos do Qwen2.5-VL para o device configurado. Idempotente."""
+        if self.model is not None:
+            return
+
+        cache_dir = self._quant_cache_dir
+        if self._quantize and (cache_dir / "config.json").exists():
             self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
-                str(cache_dir), device_map=device, attn_implementation="sdpa"
+                str(cache_dir), device_map=self._device_str, attn_implementation="sdpa"
             ).eval()
             self.processor = AutoProcessor.from_pretrained(str(cache_dir))
         else:
             quantization_config = None
-            if quantize:
+            if self._quantize:
                 quantization_config = BitsAndBytesConfig(
                     load_in_4bit=True,
                     bnb_4bit_quant_type="nf4",
-                    bnb_4bit_compute_dtype=dtype,
+                    bnb_4bit_compute_dtype=self._dtype,
                     bnb_4bit_use_double_quant=True,
                 )
             self.model = load_offline_first(
                 Qwen2_5_VLForConditionalGeneration.from_pretrained,
-                model_name,
-                torch_dtype=dtype,
-                device_map=device,
+                self._model_name,
+                torch_dtype=self._dtype,
+                device_map=self._device_str,
                 quantization_config=quantization_config,
                 attn_implementation="sdpa",
             ).eval()
-            self.processor = load_offline_first(AutoProcessor.from_pretrained, model_name)
-            if quantize:
+            self.processor = load_offline_first(AutoProcessor.from_pretrained, self._model_name)
+            if self._quantize:
                 # 1a execucao: persiste os pesos JA quantizados em
                 # `cache_dir`, para que as proximas instancias entrem no
                 # ramo acima e pulem a (re)quantizacao na CPU (~25s).
@@ -99,6 +128,48 @@ class Qwen2VLDescriber:
                 self.processor.save_pretrained(str(cache_dir))
 
         self.device = self.model.device
+
+    def warmup(self) -> None:
+        """Inferencia ficticia com 1 token para inicializar kernels CUDA do Qwen."""
+        dummy = Image.new("RGB", (64, 64), (128, 128, 128))
+        self.describe(dummy, max_new_tokens=1)
+
+    def infer(
+        self,
+        *,
+        image: Optional[Image.Image] = None,
+        images: Optional[List[Image.Image]] = None,
+        query: Optional[str] = None,
+        prompt: Optional[str] = None,
+        **_,
+    ):
+        """Ponto de entrada unificado para o Qwen2.5-VL.
+
+        Combinacoes suportadas:
+            images=List[Image], query=str  -> describe_for_query_batch()
+            image=Image,        query=str  -> describe_for_query()
+            image=Image,        prompt=str -> describe()
+        """
+        if images is not None and query is not None:
+            return self.describe_for_query_batch(images, query)
+        if image is not None and query is not None:
+            return self.describe_for_query(image, query)
+        if image is not None and prompt is not None:
+            return self.describe(image, prompt=prompt)
+        raise ValueError(
+            "Passe (images, query), (image, query) ou (image, prompt)."
+        )
+
+    def unload(self) -> None:
+        """Libera o modelo da VRAM."""
+        self.model = None
+        self.processor = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    # ------------------------------------------------------------------
+    # Metodos tipados (usados diretamente pelo pipeline)
+    # ------------------------------------------------------------------
 
     @staticmethod
     def _build_messages(image: Image.Image, prompt: str) -> List[dict]:
