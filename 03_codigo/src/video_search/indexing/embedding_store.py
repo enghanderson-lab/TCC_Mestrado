@@ -1,4 +1,11 @@
-"""Armazenamento e busca de embeddings de frames (índice em memória, numpy)."""
+"""Armazenamento e busca de embeddings de frames.
+
+Dois formatos suportados:
+  - Legado (numpy): embeddings.npy + records.json + metadata.json
+  - FAISS: faiss.index + records.json + metadata.json (ver faiss_store.py)
+
+Use `load_store(path)` para carregar qualquer formato automaticamente.
+"""
 
 import json
 from dataclasses import asdict, dataclass
@@ -61,9 +68,31 @@ class EmbeddingStore:
         return store
 
     def search(self, query_embedding: np.ndarray, top_k: int = 5) -> List[Tuple[float, FrameRecord]]:
+        return [(s, r) for s, r, _ in self.search_with_embeddings(query_embedding, top_k)]
+
+    def search_with_embeddings(
+        self, query_embedding: np.ndarray, top_k: int = 5
+    ) -> List[Tuple[float, FrameRecord, np.ndarray]]:
+        """Busca Top-K retornando (score, record, embedding) — necessário para MMR."""
         if not self._embeddings:
             return []
         matrix = np.stack(self._embeddings)
-        scores = matrix @ np.asarray(query_embedding, dtype=np.float32)
+        q = np.asarray(query_embedding, dtype=np.float32)
+        scores = matrix @ q
         top_idx = np.argsort(-scores)[:top_k]
-        return [(float(scores[i]), self._records[i]) for i in top_idx]
+        return [(float(scores[i]), self._records[i], self._embeddings[i]) for i in top_idx]
+
+
+def load_store(path: Union[str, Path]) -> "EmbeddingStore":
+    """Carrega o índice em `path` detectando o formato automaticamente.
+
+    - Se `faiss.index` existe → usa FaissStore (busca FAISS)
+    - Caso contrário → usa EmbeddingStore legado (numpy dot-product)
+
+    Ambos expõem a mesma interface: search() e search_with_embeddings().
+    """
+    path = Path(path)
+    if (path / "faiss.index").exists():
+        from .faiss_store import FaissStore
+        return FaissStore.load(path)  # type: ignore[return-value]
+    return EmbeddingStore.load(path)

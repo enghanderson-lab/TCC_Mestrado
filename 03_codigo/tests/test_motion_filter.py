@@ -1,7 +1,7 @@
 from PIL import Image
 
-from video_search.config import MotionDetectionConfig
-from video_search.motion_filter import MotionFilter
+from video_search.utils.config import MotionDetectionConfig
+from video_search.media.motion_filter import MotionFilter
 
 
 def _solid_image(color, size=(64, 64)):

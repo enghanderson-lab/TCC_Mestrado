@@ -6,6 +6,13 @@ opencv-python
 Pillow
 pytest
 PyYAML
+# Busca vetorial — faiss-gpu (se disponível) oferece busca na GPU
+# substitua por: pip install faiss-gpu  (requer CUDA)
+faiss-cpu
+# Profiling — ambos opcionais; degradam graciosamente se ausentes
+psutil          # CPU % e RAM (HardwareMonitor)
+matplotlib      # gráfico de barras do relatório
+# nvidia-ml-py  # GPU utilization % via NVML — descomente se quiser GPU%
 
 # Instalar com: pip install -r requirements.txt -c constraints-cuda.txt
 transformers

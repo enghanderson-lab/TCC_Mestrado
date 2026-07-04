@@ -1,7 +1,7 @@
 import numpy as np
 
-from video_search.config import EmbeddingFilterConfig
-from video_search.embedding_filter import EmbeddingSimilarityFilter
+from video_search.utils.config import EmbeddingFilterConfig
+from video_search.indexing.embedding_filter import EmbeddingSimilarityFilter
 
 
 def test_first_embedding_always_accepted():

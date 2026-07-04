@@ -17,6 +17,7 @@ em vez de get_image_features/get_text_features, pois no transformers 5.x esses
 metodos retornam dataclasses em vez de tensors quando carregados via AutoModel.
 """
 
+import time
 from typing import List, Optional
 
 import numpy as np
@@ -24,7 +25,7 @@ import torch
 from PIL import Image
 from transformers import AutoProcessor, SiglipModel
 
-from .hf_utils import load_offline_first
+from ..utils.hf_utils import load_offline_first
 from .vlm_abc import VisionLanguageModel
 
 _PRECISION_MAP = {
@@ -128,9 +129,22 @@ class SigLIPEmbedder(VisionLanguageModel):
         features = features / features.norm(dim=-1, keepdim=True)
         return features.cpu().float().numpy().astype(np.float32)
 
-    def encode_images(self, images: List[Image.Image]) -> np.ndarray:
+    def encode_images(self, images: List[Image.Image], profiler=None) -> np.ndarray:
+        """Encode images to L2-normalized embeddings.
+
+        `profiler` (Optional[ProfilingContext]): quando fornecido, registra
+        separadamente o tempo de pré-processamento e de inferência GPU.
+        """
+        t0 = time.perf_counter()
         inputs = self.processor(images=images, return_tensors="pt").to(self.device)
+        if profiler:
+            profiler.add_time("siglip_preprocess", time.perf_counter() - t0, len(images))
+
+        t1 = time.perf_counter()
         with torch.no_grad():
             features = self._encode_image(inputs["pixel_values"])
+        if profiler:
+            profiler.add_time("siglip_infer", time.perf_counter() - t1, len(images))
+
         features = features / features.norm(dim=-1, keepdim=True)
         return features.cpu().float().numpy().astype(np.float32)

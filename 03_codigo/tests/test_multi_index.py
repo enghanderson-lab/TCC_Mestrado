@@ -1,10 +1,10 @@
 import cv2
 import numpy as np
 
-from video_search import multi_index
-from video_search.config import MultiIndexConfig
-from video_search.embedding_store import EmbeddingStore
-from video_search.multi_index import CameraSource, run_multi_index
+from video_search.indexing import multi_index
+from video_search.utils.config import MultiIndexConfig
+from video_search.indexing.embedding_store import load_store
+from video_search.indexing.multi_index import CameraSource, run_multi_index
 
 
 def _write_video(path, colors, fps=5, size=(64, 64)):
@@ -21,7 +21,7 @@ class FakeEmbedder:
     frame, normalizado -- suficiente para o filtro de similaridade distinguir
     frames claramente diferentes (preto vs branco) sem precisar de GPU/SigLIP."""
 
-    def encode_images(self, images):
+    def encode_images(self, images, profiler=None):
         vectors = []
         for image in images:
             mean = float(np.asarray(image.convert("L"), dtype=np.float32).mean()) / 255.0
@@ -31,16 +31,11 @@ class FakeEmbedder:
         return np.stack(vectors)
 
 
-class FakeDescriber:
-    def describe(self, image, prompt=None, max_new_tokens=64):
-        return "fake-caption"
-
 
 def test_run_multi_index_two_cameras_with_independent_state(tmp_path, monkeypatch):
-    # _make_embedder e _make_describer sao as factories patcheaveis em multi_index.py;
-    # retornam Fakes sem tocar nos modelos reais nem no ModelManager.
+    # _make_embedder é a factory patcheável em multi_index.py;
+    # retorna FakeEmbedder sem tocar nos modelos reais nem no ModelManager.
     monkeypatch.setattr(multi_index, "_make_embedder", lambda: FakeEmbedder())
-    monkeypatch.setattr(multi_index, "_make_describer", lambda: FakeDescriber())
 
     black = (0, 0, 0)
     white = (255, 255, 255)
@@ -77,9 +72,8 @@ def test_run_multi_index_two_cameras_with_independent_state(tmp_path, monkeypatc
             summary.frame_count + summary.frames_discarded_motion + summary.frames_discarded_similarity
         )
 
-    # Saida no MESMO formato de hoje (run_index) -- carregavel por EmbeddingStore.load,
-    # com o campo `caption` (ja existente, sem uso ate aqui) populado.
-    store_a = EmbeddingStore.load(tmp_path / "out_a")
+    # Saida persistida em FAISS (FaissStore) ou numpy legado (EmbeddingStore);
+    # load_store() detecta automaticamente o formato pelo conteudo da pasta.
+    store_a = load_store(tmp_path / "out_a")
     assert store_a.model_name == "siglip"
     assert len(store_a) == 3
-    assert all(record.caption == "fake-caption" for record in store_a._records)

@@ -1,0 +1,25 @@
+# Dados gerados (índices FAISS e relatórios de profiling)
+index/
+profiling/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Ambiente virtual
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# pytest
+.pytest_cache/

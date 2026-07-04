@@ -3,7 +3,7 @@ import time
 
 import pytest
 
-from video_search.batch_dispatcher import BatchDispatcher
+from video_search.indexing.batch_dispatcher import BatchDispatcher
 
 
 def test_flush_on_batch_size():

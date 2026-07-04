@@ -92,8 +92,8 @@ class ModelManager:
 
             from sentence_transformers import SentenceTransformer
 
-            from .hf_utils import load_offline_first
-            from .pipeline import CONFIDENCE_MODEL
+            from ..utils.hf_utils import load_offline_first
+            from ..indexing.pipeline import CONFIDENCE_MODEL
 
             self._sentence_transformer = load_offline_first(
                 SentenceTransformer,

@@ -12,7 +12,7 @@ import cv2
 import numpy as np
 from PIL import Image
 
-from .config import MotionDetectionConfig
+from ..utils.config import MotionDetectionConfig
 
 logger = logging.getLogger(__name__)
 

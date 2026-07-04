@@ -8,7 +8,7 @@ from typing import Dict
 
 import numpy as np
 
-from .config import EmbeddingFilterConfig
+from ..utils.config import EmbeddingFilterConfig
 
 logger = logging.getLogger(__name__)
 

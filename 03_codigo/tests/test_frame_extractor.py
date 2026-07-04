@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 
-from video_search.frame_extractor import extract_frames
+from video_search.media.frame_extractor import extract_frames
 
 
 def _write_synthetic_video(path, fps=10, num_frames=30, size=(32, 32)):

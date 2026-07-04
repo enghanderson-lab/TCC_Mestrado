@@ -1,6 +1,6 @@
 import numpy as np
 
-from video_search.embedding_store import EmbeddingStore, FrameRecord
+from video_search.indexing.embedding_store import EmbeddingStore, FrameRecord
 
 
 def test_save_load_search(tmp_path):

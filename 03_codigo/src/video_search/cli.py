@@ -11,6 +11,10 @@ indexacao/busca vive em `pipeline.py`.
 Exemplos:
     python -m video_search.cli index video.mp4 --output index/video --interval 2
     python -m video_search.cli search "homem de camisa branca" --index index/video
+
+Profiling:
+    python -m video_search.cli index video.mp4 --profiling-dir profiling/
+    python -m video_search.cli search "..." --profiling-dir profiling/
 """
 
 import argparse
@@ -18,8 +22,9 @@ import json
 import sys
 from pathlib import Path
 
-from .model_manager import ModelConfig, ModelManager
-from .pipeline import run_index, run_search
+from .models.model_config import ModelConfig
+from .models.model_manager import ModelManager
+from .indexing.pipeline import SearchMode, run_index, run_search
 
 
 def cmd_index(args: argparse.Namespace, mm: ModelManager) -> None:
@@ -34,6 +39,7 @@ def cmd_index(args: argparse.Namespace, mm: ModelManager) -> None:
         limit=args.limit,
         on_progress=on_progress,
         model_manager=mm,
+        profiling_dir=args.profiling_dir,
     )
     print(
         f"Indice salvo em '{summary.output_dir}' ({summary.frame_count} frames, "
@@ -44,8 +50,8 @@ def cmd_index(args: argparse.Namespace, mm: ModelManager) -> None:
 def cmd_index_multi(args: argparse.Namespace, mm: ModelManager) -> None:
     import logging
 
-    from .config import MultiIndexConfig
-    from .multi_index import CameraSource, run_multi_index
+    from .utils.config import MultiIndexConfig
+    from .indexing.multi_index import CameraSource, run_multi_index
 
     logging.basicConfig(
         level=logging.INFO,
@@ -62,7 +68,12 @@ def cmd_index_multi(args: argparse.Namespace, mm: ModelManager) -> None:
         for video in args.videos
     ]
 
-    summaries = run_multi_index(sources, config=config, interval=args.interval)
+    summaries = run_multi_index(
+        sources,
+        config=config,
+        interval=args.interval,
+        profiling_dir=args.profiling_dir,
+    )
     for s in summaries:
         print(
             f"[{s.camera_id}] {s.frame_count}/{s.frames_read} frames aceitos -> '{s.output_dir}' "
@@ -76,12 +87,21 @@ def cmd_search(args: argparse.Namespace, mm: ModelManager) -> None:
         with open(meta_path, encoding="utf-8") as f:
             print(f"[Indice: modelo={json.load(f).get('model_name', 'siglip')}]")
 
+    # --no-caption é compat legada; --mode tem precedência quando especificado
+    mode = SearchMode(args.mode)
+    if args.no_caption and args.mode == SearchMode.DETAILED.value:
+        mode = SearchMode.FAST
+
+    print(f"[Modo: {mode.value}  top_k={args.top_k}  retrieval_k={args.retrieval_k}]")
+
     results = run_search(
         args.query,
         args.index,
         top_k=args.top_k,
-        with_caption=not args.no_caption,
+        mode=mode,
+        retrieval_k=args.retrieval_k,
         model_manager=mm,
+        profiling_dir=args.profiling_dir,
     )
 
     if not results:
@@ -112,6 +132,15 @@ def build_parser() -> argparse.ArgumentParser:
         "--no-warmup",
         action="store_true",
         help="Pula o warmup dos modelos apos o carregamento",
+    )
+    parser.add_argument(
+        "--profiling-dir",
+        default=None,
+        metavar="DIR",
+        help=(
+            "Pasta onde salvar o relatório de profiling (.txt) e o gráfico (.png) "
+            "ao final da execução. Omitir desativa a geração de arquivos."
+        ),
     )
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -145,11 +174,27 @@ def build_parser() -> argparse.ArgumentParser:
     p_search = sub.add_parser("search", help="Busca frames por descricao em texto")
     p_search.add_argument("query", help="Descricao em linguagem natural")
     p_search.add_argument("--index", default="index", help="Pasta do indice gerado por 'index'")
-    p_search.add_argument("--top-k", type=int, default=12, help="Numero de resultados")
+    p_search.add_argument("--top-k", type=int, default=5, help="Numero de resultados retornados")
+    p_search.add_argument(
+        "--mode",
+        choices=[m.value for m in SearchMode],
+        default=SearchMode.DETAILED.value,
+        help=(
+            "fast: SigLIP apenas (latência mínima). "
+            "detailed: SigLIP → MMR → Qwen (máxima qualidade). "
+            "Default: detailed"
+        ),
+    )
+    p_search.add_argument(
+        "--retrieval-k",
+        type=int,
+        default=100,
+        help="Candidatos FAISS antes do reranker MMR (modo detailed). Default: 100",
+    )
     p_search.add_argument(
         "--no-caption",
         action="store_true",
-        help="Pula a legenda/confianca via Qwen2-VL (busca apenas por score, mais rapido)",
+        help="[Legado] equivalente a --mode fast",
     )
     p_search.set_defaults(func=cmd_search)
 

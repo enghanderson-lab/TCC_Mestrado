@@ -12,6 +12,7 @@ Modelo 3B escolhido para caber em GPUs de 6-8GB VRAM (RTX 3060/4060):
   - 7B em bfloat16 exigiria ~14GB (OOM mesmo numa 4060); 7B em 4-bit (~5GB)
     poderia ser viavel, mas nao foi testado."""
 
+import time
 from pathlib import Path
 from typing import List, Optional, Sequence, Union
 
@@ -20,7 +21,7 @@ from PIL import Image
 from qwen_vl_utils import process_vision_info
 from transformers import AutoProcessor, BitsAndBytesConfig, Qwen2_5_VLForConditionalGeneration
 
-from .hf_utils import load_offline_first
+from ..utils.hf_utils import load_offline_first
 from .vlm_abc import VisionLanguageModel
 
 _MAX_IMAGE_SIDE = 768
@@ -31,7 +32,7 @@ _MAX_IMAGE_SIDE = 768
 # `from_pretrained`; salvando o resultado uma vez (ver `_load_or_quantize`),
 # as proximas execucoes carregam os pesos ja quantizados em poucos
 # segundos, em vez de requantizar do zero a cada busca.
-_DEFAULT_QUANT_CACHE_DIR = Path(__file__).resolve().parents[3] / "04_dados" / "models" / "qwen25vl3b-nf4"
+_DEFAULT_QUANT_CACHE_DIR = Path(__file__).resolve().parents[4] / "04_dados" / "models" / "qwen25vl3b-nf4"
 
 
 def _resize_for_vlm(image: Image.Image, max_side: int = _MAX_IMAGE_SIDE) -> Image.Image:
@@ -250,17 +251,14 @@ class Qwen2VLDescriber(VisionLanguageModel):
         images: List[Image.Image],
         query: str,
         max_new_tokens: int = 40,
+        profiler=None,
     ) -> List[str]:
         """Versao em lote de `describe_for_query`: gera as legendas de todas
-        as `images` numa unica chamada a `generate()`, em vez de uma chamada
-        por imagem.
+        as `images` numa unica chamada a `generate()`.
 
-        A geracao autoregressiva e dominada pelo tempo de decodificacao
-        token-a-token, que e quase o mesmo rodando 1 ou N imagens em
-        paralelo na GPU (a etapa cara e sequencial por natureza, nao por
-        imagem) -- rodar em lote evita pagar esse custo fixo N vezes.
-        Essencial para manter a busca com legenda (top_k resultados) abaixo
-        de poucos segundos em vez de N x ~3s."""
+        `profiler` (Optional[ProfilingContext]): registra qwen_preprocess e
+        qwen_infer separadamente, e incrementa qwen_calls.
+        """
         if not images:
             return []
         prompt = self._query_prompt(query)
@@ -271,11 +269,9 @@ class Qwen2VLDescriber(VisionLanguageModel):
             for messages in messages_batch
         ]
         image_inputs, video_inputs = process_vision_info(messages_batch)
-        # Geracao em lote precisa de left-padding: o proximo token a prever
-        # e sempre o ultimo da sequencia, e isso só fica alinhado entre
-        # amostras de comprimentos diferentes se o padding for inserido a
-        # esquerda (ver "Batch inference" na doc do Qwen2.5-VL).
         self.processor.tokenizer.padding_side = "left"
+
+        t0 = time.perf_counter()
         inputs = self.processor(
             text=texts,
             images=image_inputs,
@@ -283,7 +279,15 @@ class Qwen2VLDescriber(VisionLanguageModel):
             padding=True,
             return_tensors="pt",
         ).to(self.device)
+        if profiler:
+            profiler.add_time("qwen_preprocess", time.perf_counter() - t0, len(images))
+
+        t1 = time.perf_counter()
         output_ids = self.model.generate(**inputs, max_new_tokens=max_new_tokens)
+        if profiler:
+            profiler.add_time("qwen_infer", time.perf_counter() - t1, len(images))
+            profiler.count("qwen_calls", len(images))
+
         trimmed = output_ids[:, inputs["input_ids"].shape[1] :]
         return [c.strip() for c in self.processor.batch_decode(trimmed, skip_special_tokens=True)]
 

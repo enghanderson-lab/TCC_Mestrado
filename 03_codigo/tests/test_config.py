@@ -1,4 +1,4 @@
-from video_search.config import MultiIndexConfig
+from video_search.utils.config import MultiIndexConfig
 
 
 def test_load_none_returns_defaults():
