@@ -1,0 +1,394 @@
+[
+  {
+    "index": 0,
+    "timestamp_sec": 0.0,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 1,
+    "timestamp_sec": 1.9857939356908272,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 2,
+    "timestamp_sec": 3.9715878713816544,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 3,
+    "timestamp_sec": 5.9573818070724815,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 4,
+    "timestamp_sec": 7.943175742763309,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 5,
+    "timestamp_sec": 9.928969678454136,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 6,
+    "timestamp_sec": 11.914763614144963,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 7,
+    "timestamp_sec": 13.90055754983579,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 8,
+    "timestamp_sec": 15.886351485526617,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 9,
+    "timestamp_sec": 17.872145421217443,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 10,
+    "timestamp_sec": 19.857939356908272,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 11,
+    "timestamp_sec": 21.843733292599097,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 12,
+    "timestamp_sec": 23.829527228289926,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 13,
+    "timestamp_sec": 25.81532116398075,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 14,
+    "timestamp_sec": 27.80111509967158,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 15,
+    "timestamp_sec": 29.786909035362406,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 16,
+    "timestamp_sec": 31.772702971053235,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 17,
+    "timestamp_sec": 33.758496906744064,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 18,
+    "timestamp_sec": 35.744290842434886,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 19,
+    "timestamp_sec": 37.730084778125715,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 20,
+    "timestamp_sec": 39.715878713816544,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 21,
+    "timestamp_sec": 41.70167264950737,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 22,
+    "timestamp_sec": 43.687466585198194,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 23,
+    "timestamp_sec": 45.67326052088902,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 24,
+    "timestamp_sec": 47.65905445657985,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 25,
+    "timestamp_sec": 49.64484839227068,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 26,
+    "timestamp_sec": 51.6306423279615,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 27,
+    "timestamp_sec": 53.61643626365233,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 28,
+    "timestamp_sec": 55.60223019934316,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 29,
+    "timestamp_sec": 57.58802413503399,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 30,
+    "timestamp_sec": 59.57381807072481,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 31,
+    "timestamp_sec": 61.55961200641564,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 32,
+    "timestamp_sec": 63.54540594210647,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 33,
+    "timestamp_sec": 65.53119987779729,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 34,
+    "timestamp_sec": 67.51699381348813,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 35,
+    "timestamp_sec": 69.50278774917895,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 36,
+    "timestamp_sec": 71.48858168486977,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 37,
+    "timestamp_sec": 73.47437562056061,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 38,
+    "timestamp_sec": 75.46016955625143,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 39,
+    "timestamp_sec": 77.44596349194227,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 40,
+    "timestamp_sec": 79.43175742763309,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 41,
+    "timestamp_sec": 81.41755136332391,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 42,
+    "timestamp_sec": 83.40334529901475,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 43,
+    "timestamp_sec": 85.38913923470557,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 44,
+    "timestamp_sec": 87.37493317039639,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 45,
+    "timestamp_sec": 89.36072710608723,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 46,
+    "timestamp_sec": 91.34652104177805,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 47,
+    "timestamp_sec": 93.33231497746888,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 48,
+    "timestamp_sec": 95.3181089131597,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 49,
+    "timestamp_sec": 97.30390284885053,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 50,
+    "timestamp_sec": 99.28969678454136,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 51,
+    "timestamp_sec": 101.27549072023218,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 52,
+    "timestamp_sec": 103.261284655923,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 53,
+    "timestamp_sec": 105.24707859161384,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 54,
+    "timestamp_sec": 107.23287252730466,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  },
+  {
+    "index": 55,
+    "timestamp_sec": 109.2186664629955,
+    "video": "teste02.mp4",
+    "video_path": "C:\\Users\\Lucas\\Downloads\\Vídeos_teste\\teste02.mp4",
+    "caption": ""
+  }
+]

@@ -10,10 +10,10 @@ from sentence_transformers import SentenceTransformer
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from video_search.siglip_embedder import SigLIPEmbedder  # noqa: E402
-from video_search.embedding_store import EmbeddingStore  # noqa: E402
-from video_search.frame_extractor import extract_frame_at  # noqa: E402
-from video_search.vlm_describer import Qwen2VLDescriber  # noqa: E402
+from video_search.models.siglip_embedder import SigLIPEmbedder  # noqa: E402
+from video_search.indexing.embedding_store import EmbeddingStore  # noqa: E402
+from video_search.media.frame_extractor import extract_frame_at  # noqa: E402
+from video_search.models.vlm_describer import Qwen2VLDescriber  # noqa: E402
 
 INDEX_DIR = str(Path(__file__).resolve().parents[2] / "04_dados" / "index" / "teste01")
 

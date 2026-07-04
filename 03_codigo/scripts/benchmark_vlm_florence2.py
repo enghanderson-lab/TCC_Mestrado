@@ -26,9 +26,9 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from sentence_transformers import SentenceTransformer  # noqa: E402
 
-from video_search.frame_extractor import extract_frames_at  # noqa: E402
-from video_search.hf_utils import load_offline_first  # noqa: E402
-from video_search.vlm_describer import Qwen2VLDescriber  # noqa: E402
+from video_search.media.frame_extractor import extract_frames_at  # noqa: E402
+from video_search.utils.hf_utils import load_offline_first  # noqa: E402
+from video_search.models.vlm_describer import Qwen2VLDescriber  # noqa: E402
 
 _DEFAULT_QUERY_PT = (
     "uma mulher com cabelos escuros, tenis brancos e usando uma mochila nas costas"

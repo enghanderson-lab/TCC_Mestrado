@@ -16,8 +16,8 @@ from sentence_transformers import SentenceTransformer
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from video_search.frame_extractor import extract_frame_at  # noqa: E402
-from video_search.vlm_describer import Qwen2VLDescriber  # noqa: E402
+from video_search.media.frame_extractor import extract_frame_at  # noqa: E402
+from video_search.models.vlm_describer import Qwen2VLDescriber  # noqa: E402
 
 VIDEO_PATH = str(Path(__file__).resolve().parents[2] / "04_dados" / "raw" / "teste01.mp4")
 TIMESTAMP_SEC = 4.0  # frame 2: clip_score alto para "carro estacionado na rua"

@@ -6,7 +6,9 @@ Inicialização:
 Variáveis de ambiente:
     VS_API_KEY   Chave de autenticação (default: "dev-key")
     VS_DB_PATH   Caminho do SQLite de câmeras (default: cameras.db)
-    VS_CORS_ORIGINS  Origens CORS separadas por vírgula (default: *)
+    VS_CORS_ORIGINS  Origens CORS separadas por vírgula (default: nenhuma —
+                     fail-safe; configure explicitamente com a origem do
+                     frontend antes de qualquer deploy real. Ver API.md.)
 """
 
 import logging
@@ -40,9 +42,21 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
-    # CORS — em prod, restringir VS_CORS_ORIGINS à origem do Lovable
-    raw_origins = os.getenv("VS_CORS_ORIGINS", "*")
-    origins = [o.strip() for o in raw_origins.split(",")]
+    # CORS — allow_credentials=True combinado com allow_origins=["*"] é
+    # rejeitado pelo navegador por especificação (CORS não permite wildcard
+    # de origem junto com credentials), então isso falhava silenciosamente
+    # em produção se VS_CORS_ORIGINS não fosse configurado. Default agora é
+    # fail-safe: nenhuma origem liberada até ser configurado explicitamente.
+    raw_origins = os.getenv("VS_CORS_ORIGINS", "").strip()
+    origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
+
+    if not origins:
+        logger.warning(
+            "VS_CORS_ORIGINS não configurado — nenhuma origem CORS liberada "
+            "(fail-safe). Configure com a origem do frontend (ex.: "
+            "https://seu-projeto.lovable.app) antes de qualquer deploy real. "
+            "Ver API.md."
+        )
 
     app.add_middleware(
         CORSMiddleware,

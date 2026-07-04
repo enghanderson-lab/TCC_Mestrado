@@ -173,6 +173,7 @@ class AsyncIndexPipeline:
         interval_sec: float = 2.0,
         limit: int = 0,
         on_progress: Optional[Callable[[str, int], None]] = None,
+        should_cancel: Optional[Callable[[], bool]] = None,
     ) -> List[PipelineResult]:
         """Indexa todas as fontes em paralelo.
 
@@ -181,6 +182,9 @@ class AsyncIndexPipeline:
             interval_sec: intervalo de amostragem entre frames (segundos).
             limit:        para após este nº de frames amostrados por câmera (0=sem limite).
             on_progress:  callback(camera_id, n_aceitos) chamado a cada frame salvo.
+            should_cancel: checado periodicamente pelos leitores; quando
+                           retorna True, a leitura para e o pipeline drena e
+                           encerra normalmente (sem exceção).
 
         Returns:
             Uma PipelineResult por câmera; os indexes já estão salvos em disco.
@@ -221,7 +225,7 @@ class AsyncIndexPipeline:
             *(threading.Thread(
                 target=self._reader_worker,
                 args=(src, interval_sec, limit, q_frames, metrics["reader"],
-                      results, results_lock, error_slot, p),
+                      results, results_lock, error_slot, p, should_cancel),
                 name=f"reader-{src.camera_id}",
                 daemon=True,
             ) for src in sources),
@@ -301,6 +305,7 @@ class AsyncIndexPipeline:
         results_lock: threading.Lock,
         error_slot: List,
         profiler,  # Optional[ProfilingContext]
+        should_cancel: Optional[Callable[[], bool]] = None,
     ) -> None:
         """Lê frames do vídeo e os enfileira, medindo extração separada da fila."""
         video_name = Path(source.video_path).name
@@ -321,6 +326,9 @@ class AsyncIndexPipeline:
                 if error_slot[0] is not None:
                     break
                 if limit and frame.index >= limit:
+                    break
+                if should_cancel is not None and should_cancel():
+                    logger.info("indexação de %s cancelada", source.camera_id)
                     break
 
                 t0 = time.monotonic()

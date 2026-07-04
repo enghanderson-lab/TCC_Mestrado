@@ -50,24 +50,30 @@ def _index_worker(
             interval=interval,
             batch_size=batch_size,
             on_progress=on_progress,
+            should_cancel=job.cancel_event.is_set,
         )
 
-        job.frames_indexed = summary.frame_count
-        job.status = "done"
+        if job.cancel_event.is_set():
+            job.status = "cancelled"
+        else:
+            job.frames_indexed = summary.frame_count
+            job.status = "done"
+            db.upsert(CameraRecord(
+                camera_id=camera_id,
+                video_path=video_path,
+                output_dir=output_dir,
+                frame_count=summary.frame_count,
+                indexed_at=datetime.now(timezone.utc).isoformat(),
+                status="indexed",
+            ))
         job.finished_at = time.monotonic()
 
-        db.upsert(CameraRecord(
-            camera_id=camera_id,
-            video_path=video_path,
-            output_dir=output_dir,
-            frame_count=summary.frame_count,
-            indexed_at=datetime.now(timezone.utc).isoformat(),
-            status="indexed",
-        ))
-
     except Exception as exc:
-        job.status = "error"
-        job.error_msg = str(exc)
+        if job.cancel_event.is_set():
+            job.status = "cancelled"
+        else:
+            job.status = "error"
+            job.error_msg = str(exc)
         job.finished_at = time.monotonic()
 
 
@@ -115,8 +121,7 @@ async def cancel_job(
         raise HTTPException(status_code=404, detail="Job não encontrado")
     if job.status != "running":
         raise HTTPException(status_code=400, detail=f"Job não está rodando (status={job.status})")
-    job.status = "cancelled"
-    job.finished_at = time.monotonic()
+    job.request_cancel()
     return {"cancelled": job_id}
 
 

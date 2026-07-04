@@ -15,6 +15,18 @@ class IndexJob:
     error_msg: Optional[str] = None
     started_at: float = field(default_factory=time.monotonic)
     finished_at: Optional[float] = None
+    cancel_event: threading.Event = field(default_factory=threading.Event, repr=False)
+
+    def request_cancel(self) -> None:
+        """Sinaliza cancelamento cooperativo ao worker de indexação.
+
+        O worker verifica `cancel_event` periodicamente e interrompe o
+        processamento; o status final ("cancelled") é decidido pelo worker
+        ao observar a flag, não sobrescrito para "done".
+        """
+        self.cancel_event.set()
+        if self.status == "running":
+            self.status = "cancelled"
 
     @property
     def elapsed_sec(self) -> float:

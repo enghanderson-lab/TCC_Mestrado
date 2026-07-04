@@ -10,7 +10,7 @@ from sentence_transformers import SentenceTransformer
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from video_search.siglip_embedder import SigLIPEmbedder  # noqa: E402
+from video_search.models.siglip_embedder import SigLIPEmbedder  # noqa: E402
 
 # Pares "match": mesma cena/conceito descrito com palavras diferentes
 PARAPHRASE_PAIRS = [

@@ -80,12 +80,18 @@ def run_index(
     embedding_cache=None,
     profiler=None,           # Optional[ProfilingContext]
     profiling_dir: Optional[str] = None,
+    should_cancel: Optional[Callable[[], bool]] = None,
 ) -> IndexSummary:
     """Extrai frames, gera embeddings SigLIP e salva índice FAISS.
 
     `profiler`: contexto de profiling pré-criado (usa-se quando o caller já
     criou um profiler e quer agregar medições). Quando None e `profiling_dir`
     é fornecido, cria um novo contexto internamente e gera o relatório ao final.
+
+    `should_cancel`: checado periodicamente pelo leitor de frames; quando
+    retorna True, a leitura para e o pipeline drena e encerra normalmente
+    (sem exceção), retornando um `IndexSummary` parcial com os frames já
+    processados até o momento do cancelamento.
     """
     from .async_pipeline import AsyncIndexPipeline, PipelineConfig, PipelineSource
     from ..utils.config import EmbeddingFilterConfig, MotionDetectionConfig
@@ -118,7 +124,10 @@ def run_index(
         embedding_cache=embedding_cache,
         profiler=profiler,
     )
-    results = pipeline.run([source], interval_sec=interval, limit=limit, on_progress=progress_cb)
+    results = pipeline.run(
+        [source], interval_sec=interval, limit=limit,
+        on_progress=progress_cb, should_cancel=should_cancel,
+    )
 
     if hw_monitor is not None:
         hw_monitor.stop()

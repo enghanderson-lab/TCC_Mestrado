@@ -92,8 +92,8 @@ Smoke test do Qwen2.5-VL (baixa os pesos do modelo na primeira execução):
 - Limitação residual: confusão entre objetos visualmente parecidos (ex.:
   escada vs. rack de teto) — tanto no retrieval do SigLIP quanto no
   reranking do VLM.
-- Microsserviço HTTP (`api.py`) removido por ora — uso via CLI apenas;
-  retomar a API como evolução futura.
+- API HTTP (FastAPI) reintroduzida em Beta 1 — ver [API.md](API.md) para
+  endpoints, autenticação e exemplos de uso.
 
 ## Ideias de stack (a confirmar)
 

@@ -92,7 +92,10 @@ def cmd_search(args: argparse.Namespace, mm: ModelManager) -> None:
     if args.no_caption and args.mode == SearchMode.DETAILED.value:
         mode = SearchMode.FAST
 
-    print(f"[Modo: {mode.value}  top_k={args.top_k}  retrieval_k={args.retrieval_k}]")
+    print(
+        f"[Modo: {mode.value}  top_k={args.top_k}  retrieval_k={args.retrieval_k}  "
+        f"reranker_lambda={args.reranker_lambda}]"
+    )
 
     results = run_search(
         args.query,
@@ -100,6 +103,7 @@ def cmd_search(args: argparse.Namespace, mm: ModelManager) -> None:
         top_k=args.top_k,
         mode=mode,
         retrieval_k=args.retrieval_k,
+        reranker_lambda=args.reranker_lambda,
         model_manager=mm,
         profiling_dir=args.profiling_dir,
     )
@@ -190,6 +194,15 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=100,
         help="Candidatos FAISS antes do reranker MMR (modo detailed). Default: 100",
+    )
+    p_search.add_argument(
+        "--reranker-lambda",
+        type=float,
+        default=0.7,
+        help=(
+            "Peso MMR entre relevância e diversidade (modo detailed). "
+            "1.0=relevância pura, 0.0=diversidade pura. Default: 0.7"
+        ),
     )
     p_search.add_argument(
         "--no-caption",

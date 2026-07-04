@@ -22,11 +22,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 import torch  # noqa: E402
 
-from video_search.config import MultiIndexConfig  # noqa: E402
-from video_search.frame_extractor import extract_frames  # noqa: E402
-from video_search.multi_index import CameraSource, run_multi_index  # noqa: E402
-from video_search.pipeline import run_index  # noqa: E402
-from video_search.vlm_describer import Qwen2VLDescriber  # noqa: E402
+from video_search.utils.config import MultiIndexConfig  # noqa: E402
+from video_search.media.frame_extractor import extract_frames  # noqa: E402
+from video_search.indexing.multi_index import CameraSource, run_multi_index  # noqa: E402
+from video_search.indexing.pipeline import run_index  # noqa: E402
+from video_search.models.vlm_describer import Qwen2VLDescriber  # noqa: E402
 
 
 def main() -> None:

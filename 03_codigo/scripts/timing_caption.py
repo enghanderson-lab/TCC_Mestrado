@@ -7,8 +7,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from video_search.frame_extractor import extract_frames  # noqa: E402
-from video_search.vlm_describer import Qwen2VLDescriber  # noqa: E402
+from video_search.media.frame_extractor import extract_frames  # noqa: E402
+from video_search.models.vlm_describer import Qwen2VLDescriber  # noqa: E402
 
 VIDEO = Path(__file__).resolve().parents[2] / "04_dados" / "raw" / "teste01.mp4"
 N_FRAMES = 5

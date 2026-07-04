@@ -8,7 +8,7 @@ from PIL import Image, ImageDraw
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from video_search.vlm_describer import Qwen2VLDescriber  # noqa: E402
+from video_search.models.vlm_describer import Qwen2VLDescriber  # noqa: E402
 
 
 def make_scene_image(size=(384, 384)):
