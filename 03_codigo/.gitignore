@@ -1,6 +1,7 @@
-# Dados gerados (índices FAISS e relatórios de profiling)
-index/
-profiling/
+# Dados gerados (índices FAISS, relatórios de profiling, banco de câmeras)
+/index/
+/profiling/
+/cameras.db
 
 # Python
 __pycache__/

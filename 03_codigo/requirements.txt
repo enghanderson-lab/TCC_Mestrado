@@ -23,3 +23,7 @@ sentence-transformers
 sentencepiece
 protobuf
 bitsandbytes
+
+# API
+fastapi
+uvicorn[standard]   # inclui websockets e httptools
