@@ -27,3 +27,4 @@ bitsandbytes
 # API
 fastapi
 uvicorn[standard]   # inclui websockets e httptools
+python-multipart    # necessário para Form/UploadFile (upload de vídeo via /index/upload)

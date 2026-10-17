@@ -12,7 +12,7 @@ Paleta validada (palette.md — CVD worst-adjacent ΔE 24.2 light):
   slot 1 blue  #2a78d6  → IO (leitura de vídeo / disco)
   slot 2 aqua  #1baf7a  → GPU (SigLIP / Qwen — inferência)
   slot 3 yellow #eda100 → CPU (filtros / MMR / pré-proc)
-  slot 4 green #008300  → Cache (SQLite read/write)
+  slot 4 green #008300  → Store (escrita no índice em memória)
 """
 
 from pathlib import Path
@@ -35,9 +35,7 @@ STAGE_CATEGORY: Dict[str, str] = {
     "emb_filter":           "CPU",
     "mmr_rerank":           "CPU",
     "batch_collect":        "CPU",
-    "cache_lookup":         "Cache",
-    "cache_store":          "Cache",
-    "store_write":          "Cache",
+    "store_write":          "Store",
 }
 
 # Paleta categorical (slots 1-4, ordem CVD-safe)
@@ -45,7 +43,7 @@ _COLORS = {
     "IO":    "#2a78d6",
     "GPU":   "#1baf7a",
     "CPU":   "#eda100",
-    "Cache": "#008300",
+    "Store": "#008300",
 }
 _SURFACE    = "#fcfcfb"
 _GRID       = "#e1e0d9"
@@ -147,7 +145,7 @@ def save_chart(
     present_cats = {c for c in cats}
     legend_handles = [
         mpatches.Patch(color=_COLORS[cat], label=cat)
-        for cat in ("IO", "GPU", "CPU", "Cache")
+        for cat in ("IO", "GPU", "CPU", "Store")
         if cat in present_cats
     ]
     if len(present_cats) >= 2:

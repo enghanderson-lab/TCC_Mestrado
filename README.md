@@ -16,19 +16,29 @@ O resultado será disponibilizado como microsserviço.
 03_codigo/                Implementação do pipeline
   configs/
     multi_index.yaml      Config do pipeline multi-câmera (motion/batch/similaridade)
-  src/video_search/
-    cli.py                Ponto de entrada CLI: comandos index, index-multi e search
-    pipeline.py           run_index/run_search — lógica usada por cli.py
-    siglip_embedder.py    SigLIPEmbedder — encoder multilingue (Apache 2.0)
-    vlm_describer.py      Qwen2VLDescriber — legenda condicionada a query
-    embedding_store.py    Índice em memória (numpy), com metadata.json
-    frame_extractor.py    Extração de frames por timestamp (OpenCV)
-    config.py             Schema (pydantic) do YAML de configuração multi-câmera
-    motion_filter.py      MotionFilter — descarta frames sem mudança significativa
-    embedding_filter.py   EmbeddingSimilarityFilter — descarta embeddings redundantes
-    batch_dispatcher.py   BatchDispatcher — agrupa frames de várias câmeras num lote de GPU
-    multi_index.py        run_multi_index — orquestra N câmeras com as 3 otimizações
-    hf_utils.py           load_offline_first — pula round-trip ao HF Hub p/ modelo já em cache
+  src/video_search/       Arquitetura hexagonal (ports & adapters), ver "Arquitetura" abaixo
+    domain/               Núcleo puro: entidades, portas (Protocols), MMR e filtros
+      entities.py         FrameRecord, Camera, VideoSource, SearchResult, IndexJob
+      ports.py            ImageEmbedder, TextEmbedder, Captioner, ConfidenceScorer,
+                          VectorIndex, IndexRepository, CameraRepository, JobRepository,
+                          FrameSource, GpuRunner
+      mmr.py              MmrReranker — diversidade entre candidatos antes do Qwen
+      filters.py          MotionFilter + EmbeddingSimilarityFilter
+    application/          Casos de uso (dependem só das portas)
+      search_service.py   SearchService — busca FAST/DETAILED multi-câmera (CLI e API)
+      indexing_service.py IndexingService — indexa 1 vídeo ou N câmeras
+      indexing_pipeline.py Pipeline produtor-consumidor (leitura → filtros → SigLIP → índice)
+      index_jobs.py       IndexJobService — jobs em background, persistidos e canceláveis
+      camera_service.py   CameraService — listar/selecionar/remover câmeras
+    adapters/             Implementações concretas das portas
+      models/             SigLIP, Qwen2.5-VL (4-bit), sentence-transformer, ModelManager
+      storage/            FAISS, numpy legado, repositório de índices, SQLite (câmeras/jobs)
+      media/              OpenCV (frames) e PyAV (clips MP4)
+      gpu_executor.py     Thread única dona da GPU, com fila de prioridade (busca > indexação)
+    entrypoints/          Adapters de entrada: cli.py e api/ (FastAPI)
+    bootstrap.py          Composition root: monta adapters e serviços (Container)
+    config.py             YAML multi-câmera (pydantic) + Settings da API (env vars)
+    profiling/            Relatório de tempo por etapa + monitor de hardware
 04_dados/
   raw/                    Vídeos de teste e frames de validação
   index/                  Índices SigLIP gerados (embeddings.npy + records.json)
@@ -122,9 +132,9 @@ Vídeo (uma thread leitora por câmera)
 ```
 
 Cada câmera mantém estado independente (último frame aceito, último
-embedding aceito) — nunca comparado entre câmeras diferentes. `run_index`/
-`run_search`/CLI/API existentes não foram alterados; é um ponto de entrada
-aditivo que reaproveita `SigLIPEmbedder`/`Qwen2VLDescriber`.
+embedding aceito) — nunca comparado entre câmeras diferentes. Implementado
+em `IndexingService.index_cameras` (comando `index-multi`), sobre a mesma
+pipeline de `index_video`.
 
 **Benchmark (1 vídeo, 15 frames, RTX 4060):**
 
@@ -142,6 +152,37 @@ legendados) e os logs confirmaram lotes de SigLIP misturando frames de
 câmeras diferentes (ex.: `lote executado tamanho=3` no primeiro flush, com
 uma câmera de cada fonte) — evidência direta do batching cross-câmera.
 
+## Arquitetura
+
+Monólito modular com arquitetura **hexagonal (ports & adapters)**. Regra de
+dependência: `entrypoints → application → domain ← adapters`. O domínio não
+importa torch, FastAPI, FAISS nem SQLite; os serviços de `application/`
+dependem só das portas (`domain/ports.py`), e `bootstrap.py` é o único lugar
+que liga cada porta à sua implementação concreta.
+
+```
+ CLI ─┐                                   ┌─ SigLIP / Qwen2.5-VL / sentence-transformer
+      ├─► SearchService ───┐              ├─ FAISS / numpy (índices em disco)
+ API ─┘   IndexingService ─┼─► portas ◄───┼─ SQLite (câmeras, jobs)
+          IndexJobService ─┘  (domain)    ├─ OpenCV (frames), PyAV (clips)
+          CameraService                   └─ GpuExecutor (fila com prioridade)
+```
+
+Por que essa escolha:
+- **Trocar modelo/índice = escrever um adapter.** O projeto já trocou CLIP →
+  SigLIP e numpy → FAISS, e avaliou Moondream2 e Florence-2; com as portas,
+  comparar VLMs não exige mexer nos serviços.
+- **Testável sem GPU.** Os testes (`03_codigo/tests/`) ligam fakes às portas
+  e exercitam o fluxo completo: indexação real (OpenCV + pipeline + FAISS),
+  busca, API, jobs persistidos e cancelamento.
+- **Uma busca só.** CLI e API usam o mesmo `SearchService` (a CLI também
+  busca em várias câmeras: `--index idx1 idx2`).
+- **GPU com dono único.** O `GpuExecutor` serializa o acesso à VRAM com
+  prioridade: uma busca passa na frente dos lotes de indexação enfileirados.
+- **Microsserviços descartados**: uma GPU de 6–8 GB comporta uma única cópia
+  dos modelos; separar em serviços duplicaria VRAM ou poria rede no caminho
+  crítico.
+
 ## Modelos utilizados
 
 | Modelo | Papel | Licença |
@@ -158,22 +199,22 @@ cd 03_codigo
 $env:PYTHONPATH = "src"
 
 # Indexar um vídeo (SigLIP)
-python -m video_search.cli index "video.mp4" --output "..\04_dados\index\teste9" --interval 1
+python -m video_search index "video.mp4" --output "..\04_dados\index\teste9" --interval 1
 
 # Buscar
 
-.venv\Scripts\python.exe -m video_search.cli search "procure por um carro branco com uma escada sobre o teto" --index ..\04_dados\index\teste7_siglip
-.venv\Scripts\python.exe -m video_search.cli search "procure por uma van" --index ..\04_dados\index\teste6_siglip
+.venv\Scripts\python.exe -m video_search search "procure por um carro branco com uma escada sobre o teto" --index ..\04_dados\index\teste7_siglip
+.venv\Scripts\python.exe -m video_search search "procure por uma van" --index ..\04_dados\index\teste6_siglip
 
 
 # Buscar sem VLM (apenas SigLIP, mais rápido)
-python -m video_search.cli search "homem com caderno de anotações" --index "..\04_dados\index\meu_video" --no-caption
+python -m video_search search "homem com caderno de anotações" --index "..\04_dados\index\meu_video" --mode fast
 
 # Indexar várias câmeras simultaneamente (motion detection + batch cross-câmera + filtro de similaridade)
-python -m video_search.cli index-multi cam1.mp4 cam2.mp4 cam3.mp4 --output ..\04_dados\index --config configs\multi_index.yaml
+python -m video_search index-multi cam1.mp4 cam2.mp4 cam3.mp4 --output ..\04_dados\index --config configs\multi_index.yaml
 ```
 
-.venv\Scripts\python.exe -m video_search.cli search "procure por uma van escolar" --index ..\04_dados\index\teste9_siglip
+.venv\Scripts\python.exe -m video_search search "procure por uma van escolar" --index ..\04_dados\index\teste9_siglip
 ```
 
 ## Achados de validação

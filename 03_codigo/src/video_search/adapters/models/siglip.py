@@ -1,0 +1,138 @@
+"""SigLIP embedder: retrieval multilingue com melhor qualidade que CLIP.
+
+Modelo  : google/siglip-base-patch16-256-multilingual (Apache 2.0)
+Licenca : Apache 2.0
+Dim     : 768 (vs 512 do CLIP ViT-B/32)
+Entrada : 256x256 px (vs 224x224 do CLIP)
+
+Vantagens sobre CLIP/M-CLIP:
+  - Treinado com sigmoid loss (SigLIP) em vez de softmax (CLIP), o que melhora
+    precisao em retrieval — o modelo aprende a pontuar cada par independentemente
+    em vez de competir dentro de um batch.
+  - Suporte multiligue nativo (PT, EN, e outros) sem traducao.
+  - Scores de similaridade tipicamente mais altos e mais discriminativos.
+
+Nota de implementacao: usamos vision_model/text_model + projecoes diretamente
+em vez de get_image_features/get_text_features, pois no transformers 5.x esses
+metodos retornam dataclasses em vez de tensors quando carregados via AutoModel.
+"""
+
+import time
+from typing import List, Optional
+
+import numpy as np
+import torch
+from PIL import Image
+from transformers import AutoProcessor, SiglipModel
+
+from .hf_utils import load_offline_first
+
+_PRECISION_MAP = {
+    "bf16": torch.bfloat16,
+    "fp16": torch.float16,
+    "fp32": torch.float32,
+}
+
+
+def _l2_normalize(features: torch.Tensor) -> np.ndarray:
+    # Normaliza em float32: em bf16 a norma resultante erra ~0,3%, o que
+    # distorce o produto interno do FAISS e o limiar do filtro de similaridade.
+    features = features.float()
+    return (features / features.norm(dim=-1, keepdim=True)).cpu().numpy()
+
+
+class SigLIPEmbedder:
+    """Encoder de retrieval multilingue baseado no SigLIP da Google.
+
+    Ciclo de vida: load() / warmup() / unload() (chamados pelo ModelManager).
+    encode_text() e encode_images() retornam np.ndarray (N x 768)
+    L2-normalizados.
+    """
+
+    MODEL_NAME = "google/siglip-base-patch16-256-multilingual"
+    EMBEDDING_DIM = 768
+    TEXT_MAX_LENGTH = 64
+
+    def __init__(self, device: Optional[str] = None, precision: str = "bf16") -> None:
+        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self._dtype = _PRECISION_MAP.get(precision, torch.bfloat16)
+        self.model: Optional[SiglipModel] = None
+        self.processor = None
+        self.load()
+
+    # ------------------------------------------------------------------
+    # Ciclo de vida
+    # ------------------------------------------------------------------
+
+    def load(self) -> None:
+        """Carrega pesos do SigLIP para o device configurado. Idempotente."""
+        if self.model is not None:
+            return
+        self.model = (
+            load_offline_first(
+                SiglipModel.from_pretrained, self.MODEL_NAME, torch_dtype=self._dtype
+            )
+            .to(self.device)
+            .eval()
+        )
+        self.processor = load_offline_first(AutoProcessor.from_pretrained, self.MODEL_NAME)
+
+    def warmup(self) -> None:
+        """Inferencia ficticia para inicializar kernels CUDA do SigLIP."""
+        dummy_img = Image.new("RGB", (256, 256), (128, 128, 128))
+        self.encode_images([dummy_img])
+        self.encode_text(["warmup"])
+
+    def unload(self) -> None:
+        """Libera o modelo da VRAM/RAM."""
+        self.model = None
+        self.processor = None
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+
+    # ------------------------------------------------------------------
+    # Encoding
+    # ------------------------------------------------------------------
+
+    def _encode_image(self, pixel_values: torch.Tensor) -> torch.Tensor:
+        # SigLIP nao tem camadas de projecao separadas — pooler_output ja e o
+        # embedding no espaco conjunto imagem/texto.
+        return self.model.vision_model(pixel_values=pixel_values).pooler_output
+
+    def _encode_text(self, input_ids: torch.Tensor, attention_mask: torch.Tensor) -> torch.Tensor:
+        return self.model.text_model(input_ids=input_ids, attention_mask=attention_mask).pooler_output
+
+    def encode_text(self, texts: List[str]) -> np.ndarray:
+        inputs = self.processor(
+            text=texts,
+            return_tensors="pt",
+            padding="max_length",
+            max_length=self.TEXT_MAX_LENGTH,
+            truncation=True,
+        ).to(self.device)
+        input_ids = inputs["input_ids"]
+        # SiglipTokenizer com padding=max_length pode omitir attention_mask
+        # (todos os tokens no mesmo comprimento nao precisam de mascara).
+        attention_mask = inputs.get("attention_mask", torch.ones_like(input_ids))
+        with torch.no_grad():
+            features = self._encode_text(input_ids, attention_mask)
+        return _l2_normalize(features)
+
+    def encode_images(self, images: List[Image.Image], profiler=None) -> np.ndarray:
+        """Encode images to L2-normalized embeddings.
+
+        `profiler` (Optional[ProfilingContext]): quando fornecido, registra
+        separadamente o tempo de pré-processamento e de inferência GPU.
+        """
+        t0 = time.perf_counter()
+        inputs = self.processor(images=images, return_tensors="pt").to(self.device)
+        if profiler:
+            profiler.add_time("siglip_preprocess", time.perf_counter() - t0, len(images))
+
+        t1 = time.perf_counter()
+        with torch.no_grad():
+            features = self._encode_image(inputs["pixel_values"])
+        if profiler:
+            profiler.add_time("siglip_infer", time.perf_counter() - t1, len(images))
+
+        return _l2_normalize(features)

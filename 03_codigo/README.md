@@ -6,7 +6,7 @@ Implementação do pipeline de busca semântica em vídeo.
 .venv/      Ambiente virtual Python (não versionar)
 configs/    Config YAML do pipeline multi-câmera (motion/batch/similaridade)
 src/        Pacote video_search: extração de frames, embeddings, índice, CLI
-scripts/    Scripts utilitários (smoke tests, benchmark, etc.)
+scripts/    benchmark_optimizations.py (antes/depois das otimizações de indexação)
 tests/      Testes automatizados (pytest)
 ```
 
@@ -48,10 +48,10 @@ frames). Ver achados de validação e a evolução CLIP → M-CLIP → SigLIP no
 
 ```powershell
 # Indexar um vídeo (extrai 1 frame por segundo por padrão)
-.venv\Scripts\python.exe -m video_search.cli index ..\04_dados\raw\camera1.mp4 --output index\camera1 --interval 2
+.venv\Scripts\python.exe -m video_search index ..\04_dados\raw\camera1.mp4 --output index\camera1 --interval 2
 
 # Buscar por descrição em linguagem natural
-.venv\Scripts\python.exe -m video_search.cli search "homem de camisa branca e bone vermelho" --index index\camera1
+.venv\Scripts\python.exe -m video_search search "homem de camisa branca e bone vermelho" --index index\camera1
 ```
 
 ### Indexação multi-câmera (motion detection + batch + filtro de similaridade)
@@ -60,7 +60,7 @@ Para indexar várias câmeras/vídeos ao mesmo tempo com menos chamadas de GPU
 (ver detalhes e benchmark no [README do projeto](../README.md#estágio-1b--indexação-otimizada-para-múltiplas-câmeras-index-multi)):
 
 ```powershell
-.venv\Scripts\python.exe -m video_search.cli index-multi cam1.mp4 cam2.mp4 cam3.mp4 --output ..\04_dados\index --config configs\multi_index.yaml
+.venv\Scripts\python.exe -m video_search index-multi cam1.mp4 cam2.mp4 cam3.mp4 --output ..\04_dados\index --config configs\multi_index.yaml
 ```
 
 Benchmark antes/depois das otimizações, num único vídeo:
@@ -75,16 +75,10 @@ Rodar os testes:
 .venv\Scripts\python.exe -m pytest -v
 ```
 
-Smoke test do Qwen2.5-VL (baixa os pesos do modelo na primeira execução):
-
-```powershell
-.venv\Scripts\python.exe scripts\smoke_test_qwen2vl.py
-```
-
 ## Limitações conhecidas / próximos passos
 
 - SigLIP dá um score de similaridade, não uma "confiança" calibrada — por
-  isso o reranking via Qwen2.5-VL (`describe_for_query` + sentence-transformer)
+  isso o reranking via Qwen2.5-VL (`describe_for_query_batch` + sentence-transformer)
   é a fonte de confiança exibida na busca (ver `00_proposta/projeto_pesquisa.md`
   e achados no [README do projeto](../README.md#achados-de-validação)).
 - Busca por força bruta em numpy não escala indefinidamente; para vídeos de

@@ -1,6 +1,6 @@
 """Contexto de profiling thread-safe para a pipeline de indexação e busca.
 
-Cada stage é medido com `with ctx.stage("nome"):` ou `ctx.add_time(nome, dt)`.
+Cada stage é medido com `ctx.add_time(nome, dt)`.
 Contadores e tamanhos de batch são registrados via `ctx.count()` / `ctx.record_batch()`.
 O objeto é passado opcionalmente por toda a pilha — quando None, o código de negócio
 não executa nenhuma medição (custo zero).
@@ -9,9 +9,8 @@ não executa nenhuma medição (custo zero).
 import threading
 import time
 from collections import defaultdict
-from contextlib import contextmanager
 from dataclasses import dataclass
-from typing import Dict, Generator, List
+from typing import Dict, List
 
 
 @dataclass
@@ -48,17 +47,8 @@ class ProfilingContext:
     # Medição de tempo
     # ------------------------------------------------------------------
 
-    @contextmanager
-    def stage(self, name: str, items: int = 0) -> Generator:
-        """Context manager que mede o tempo de um bloco e o acumula em `name`."""
-        t0 = time.perf_counter()
-        try:
-            yield
-        finally:
-            self.add_time(name, time.perf_counter() - t0, items)
-
     def add_time(self, name: str, elapsed: float, items: int = 0) -> None:
-        """Acumula tempo diretamente (use quando já tem o delta calculado)."""
+        """Acumula `elapsed` segundos (e `items` processados) em `name`."""
         with self._lock:
             s = self._stages[name]
             s.total_sec += elapsed

@@ -1,7 +1,7 @@
 """Gerador de relatório de profiling em texto + gráfico.
 
-Chamado automaticamente ao final de run_multi_index() e run_search()
-quando `profiling_dir` é fornecido. Salva:
+Chamado por `profiling_session` (ver session.py) ao final da indexação ou
+da busca, quando `profiling_dir` é fornecido. Salva:
     <profiling_dir>/profiling_<timestamp>_<label>.txt
     <profiling_dir>/profiling_<timestamp>_<label>.png
 
@@ -9,38 +9,17 @@ Se `profiling_dir` for None, apenas imprime o relatório via logger.
 """
 
 import logging
-import math
 from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
+# chart.py só importa matplotlib dentro de save_chart(), então importar o
+# mapa de categorias daqui não exige matplotlib instalado.
+from .chart import STAGE_CATEGORY as _STAGE_CATEGORY
 from .context import ProfilingContext
 from .hardware import HardwareSummary
 
 logger = logging.getLogger(__name__)
-
-# Mapa stage → categoria (igual ao chart.py, sem importar de lá para evitar
-# dep circular quando matplotlib não está instalado)
-_STAGE_CATEGORY = {
-    "frame_extract":        "IO",
-    "store_save":           "IO",
-    "load_store":           "IO",
-    "frame_extract_search": "IO",
-    "siglip_preprocess":    "GPU",
-    "siglip_infer":         "GPU",
-    "siglip_text_encode":   "GPU",
-    "qwen_preprocess":      "GPU",
-    "qwen_infer":           "GPU",
-    "confidence_score":     "GPU",
-    "faiss_search":         "GPU",
-    "motion_filter":        "CPU",
-    "emb_filter":           "CPU",
-    "mmr_rerank":           "CPU",
-    "batch_collect":        "CPU",
-    "cache_lookup":         "Cache",
-    "cache_store":          "Cache",
-    "store_write":          "Cache",
-}
 
 # Nomes amigáveis
 _STAGE_LABEL = {
@@ -59,8 +38,6 @@ _STAGE_LABEL = {
     "emb_filter":           "Embedding Filter",
     "mmr_rerank":           "MMR Reranker",
     "batch_collect":        "Montagem de batch",
-    "cache_lookup":         "Cache — leitura (SQLite)",
-    "cache_store":          "Cache — escrita (SQLite)",
     "store_write":          "Store — add embedding",
 }
 
@@ -133,7 +110,6 @@ def generate_report(
         if stats.total_sec < 0.001:
             continue
         pct = stats.total_sec / wall * 100 if wall > 0 else 0.0
-        frac = min(stats.total_sec / wall, 1.0) if wall > 0 else 0.0
         label_str = _STAGE_LABEL.get(name, name)
         cat = _STAGE_CATEGORY.get(name, "?")
         throughput = ""
@@ -164,11 +140,7 @@ def generate_report(
     frames_read   = counters.get("frames_read", frames_indexed)
     drop_motion   = counters.get("frames_motion_dropped", 0)
     drop_sim      = counters.get("frames_sim_dropped", 0)
-    cache_hits    = counters.get("cache_hits", 0)
-    cache_misses  = counters.get("cache_misses", 0)
     qwen_calls    = counters.get("qwen_calls", 0)
-    cache_total   = cache_hits + cache_misses
-    cache_pct     = cache_hits / cache_total * 100 if cache_total > 0 else 0.0
     motion_pct    = drop_motion / frames_read * 100 if frames_read > 0 else 0.0
     sim_pct       = drop_sim / frames_read * 100 if frames_read > 0 else 0.0
 
@@ -177,8 +149,6 @@ def generate_report(
         f"  Descartados — motion      : {drop_motion:>6d}  ({motion_pct:.1f}%)",
         f"  Descartados — similaridade: {drop_sim:>6d}  ({sim_pct:.1f}%)",
         f"  Embeddings indexados      : {frames_indexed:>6d}",
-        f"  Cache hits                : {cache_hits:>6d}  ({cache_pct:.1f}% do total)",
-        f"  Cache misses              : {cache_misses:>6d}",
         f"  Chamadas ao Qwen          : {qwen_calls:>6d}",
     ]
 

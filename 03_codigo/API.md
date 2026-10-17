@@ -9,7 +9,7 @@ Status: **Beta 1** — uso interno/local, sem deploy em produção ainda.
 ## Subir a API
 
 ```powershell
-.venv\Scripts\python.exe -m uvicorn video_search.api.main:app --host 0.0.0.0 --port 8000
+.venv\Scripts\python.exe -m uvicorn video_search.entrypoints.api.main:app --host 0.0.0.0 --port 8000
 ```
 
 Docs interativas (Swagger) em `http://localhost:8000/docs`.
@@ -19,7 +19,9 @@ Docs interativas (Swagger) em `http://localhost:8000/docs`.
 | Variável           | Default       | Descrição                                              |
 |---------------------|---------------|---------------------------------------------------------|
 | `VS_API_KEY`         | `dev-key`     | Chave exigida no header `X-Api-Key`                      |
-| `VS_DB_PATH`         | `cameras.db`  | Caminho do SQLite que guarda o registro de câmeras       |
+| `VS_DB_PATH`         | `cameras.db`  | SQLite com o registro de câmeras e o histórico de jobs   |
+| `VS_INDEX_DIR`       | `index`       | Pasta base dos índices (`<VS_INDEX_DIR>/<camera_id>`)     |
+| `VS_UPLOAD_DIR`      | `uploads`     | Pasta onde ficam os vídeos recebidos via `/index/upload`  |
 | `VS_CORS_ORIGINS`    | *(vazio)*     | Origens CORS permitidas, separadas por vírgula — **obrigatório configurar antes de qualquer deploy real** |
 
 > ⚠️ Sem `VS_CORS_ORIGINS`, nenhuma origem cross-origin é liberada
@@ -65,6 +67,9 @@ Sem autenticação. Sem prefixo `/api/v1`.
 ### `POST /api/v1/index/start`
 
 Inicia a indexação de um vídeo em background (thread pool, 2 workers).
+As chamadas de GPU passam por uma fila com prioridade: buscas furam a fila
+dos lotes de indexação, então buscar durante uma indexação espera no máximo
+o lote em execução.
 
 Request:
 ```json
@@ -102,9 +107,15 @@ Retorna o mesmo shape acima com os contadores atualizados. `404` se o
 
 ### `DELETE /api/v1/index/{job_id}`
 
-Marca o job como `cancelled` (não interrompe o worker em execução, apenas
-sinaliza o status). `400` se o job já não estiver `running`. `404` se não
-existir.
+Cancela o job: o status vira `cancelled` na hora, a leitura de frames para
+e os lotes já enfileirados são descartados sem ir para a GPU. O índice
+parcial é salvo, mas a câmera **não** é registrada. `400` se o job já não
+estiver `running`. `404` se não existir.
+
+Jobs são persistidos no SQLite (`VS_DB_PATH`): o status continua
+consultável depois de reiniciar a API, e jobs que estavam `running` quando a
+API caiu passam a `error` com a mensagem "interrompido: a API foi reiniciada
+durante a indexação".
 
 ### `WS /api/v1/index/ws/{job_id}?api_key=<key>`
 
