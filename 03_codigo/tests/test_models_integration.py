@@ -139,3 +139,43 @@ def test_real_video_index_and_detailed_search(container, tmp_path):
     assert len(results) == 3
     assert all(r.caption for r in results)
     print(f"[pico de VRAM: {torch.cuda.max_memory_allocated() / 2**30:.2f} GB]")
+
+
+def test_evaluate_confidence_metrics_with_real_models(container, red_blue_camera, tmp_path):
+    from video_search.adapters.evaluation_report import write_report
+    from video_search.application.evaluation import Annotation, EvaluationConfig, evaluate
+
+    index_root = Path(red_blue_camera.output_dir).parent
+    camera = Path(red_blue_camera.output_dir).name
+    red, blue = [(0.0, 0.8)], [(1.0, 1.8)]
+    annotations = [
+        Annotation("p1", "uma imagem vermelha", camera, red),
+        Annotation("p2", "uma imagem azul", camera, blue),
+        Annotation("p3", "uma tela toda vermelha", camera, red),
+        Annotation("n1", "um carro amarelo", camera, []),
+        Annotation("n2", "uma pessoa andando de bicicleta", camera, []),
+    ]
+    t0 = time.perf_counter()
+    report = evaluate(container.search, annotations, index_root,
+                      EvaluationConfig(top_k=3, tolerance_sec=0.0, n_boot=500))
+    out = write_report(report, tmp_path / "avaliacao")
+    mt = report.metrics
+    print(f"\n[evaluate: {len(annotations)} consultas em {time.perf_counter() - t0:.1f}s]")
+    for o in report.outcomes:
+        best = o.decision_score
+        print(f"  {o.annotation.query_id} {o.annotation.query!r}: escore={best:.3f} "
+              f"legendas={[r.caption[:50] for r in o.results[:1]]}")
+    print(f"  detecção={mt.detection.value} falso_alarme={mt.false_alarm.value} "
+          f"AUROC={mt.auroc.value} τ={mt.tau:.3f} recall@3={mt.recall_at_k}")
+
+    # O teste verifica que a avaliação roda de ponta a ponta com os modelos
+    # reais, não a qualidade do sistema. Em 2026-10-17, nestes frames de cor
+    # sólida, o Qwen confirmou as consultas negativas ("A imagem mostra uma
+    # pessoa andando de bicicleta.") e a AUROC deu 0,17 — o viés de confirmação
+    # que a métrica existe para medir.
+    assert mt.recall_at_k == 1.0          # SigLIP traz a cor certa no top-3
+    for est in (mt.detection, mt.false_alarm, mt.auroc):
+        assert est.value is not None and 0.0 <= est.value <= 1.0
+        assert est.ci95 is not None
+    assert all(r.caption for o in report.outcomes for r in o.results)
+    assert (out / "metricas.json").exists() and (out / "roc.png").exists()

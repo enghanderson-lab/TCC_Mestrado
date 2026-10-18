@@ -69,10 +69,36 @@ Benchmark antes/depois das otimizações, num único vídeo:
 .venv\Scripts\python.exe scripts\benchmark_optimizations.py caminho\do\video.mp4
 ```
 
-Rodar os testes:
+Rodar os testes (a suíte padrão usa modelos falsos e roda sem GPU; `-m models`
+carrega SigLIP/Qwen reais):
 
 ```powershell
 .venv\Scripts\python.exe -m pytest -v
+.venv\Scripts\python.exe -m pytest -m models -s
+```
+
+## Avaliação da confiança
+
+O ponto central do projeto é a confiança: quando o objeto existe no vídeo, o
+sistema precisa encontrá-lo e confirmá-lo. Três métricas, calculadas contra
+consultas anotadas em `04_dados/anotacoes/` (formato e instruções no README de
+lá):
+
+| Métrica | Definição | Referência |
+|---|---|---|
+| **Detecção confirmada** | % das consultas positivas com um resultado correto no top-5 **e** confiança ≥ τ (TPR no ponto de operação) | análise ROC (Fawcett, 2006); Recall@K de busca de momentos (Gao et al., ICCV 2017) |
+| **Taxa de falso alarme** | % das consultas negativas (objeto ausente, negativos adversariais) com algum resultado de confiança ≥ τ (FPR a TPR fixo) | Hendrycks & Gimpel (ICLR 2017); Liang et al., ODIN (ICLR 2018); negativos à la POPE (Li et al., EMNLP 2023) |
+| **AUROC da confiança** | probabilidade de um resultado correto ter confiança maior que um incorreto | Hanley & McNeil (1982) |
+
+O limiar τ é o maior que mantém a detecção ≥ 90% (`--target`), escolhido por
+validação cruzada estratificada (5 folds) para que as métricas 1 e 2 não sejam
+medidas nos mesmos dados que escolheram τ; `--tau` fixa um limiar de produto.
+Cada métrica sai com IC 95% por bootstrap sobre as consultas. O relatório
+também separa erro de recuperação (alvo fora dos candidatos do SigLIP) de erro
+de confiança.
+
+```powershell
+.venv\Scripts\python.exe -m video_search evaluate ..\04_dados\anotacoes\consultas.jsonl --index-root index --output avaliacao
 ```
 
 ## Limitações conhecidas / próximos passos

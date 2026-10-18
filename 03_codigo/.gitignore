@@ -1,6 +1,7 @@
-# Dados gerados (índices FAISS, relatórios de profiling, banco de câmeras)
+# Dados gerados (índices FAISS, relatórios de profiling e de avaliação, banco de câmeras)
 /index/
 /profiling/
+/avaliacao/
 /cameras.db
 /cameras.db-*
 /uploads/

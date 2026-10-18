@@ -1,0 +1,14 @@
+# index-multi sem descarte de frames: indexa todos os frames amostrados de
+# cada vídeo (equivalente a rodar `index` em cada um), mas num único processo
+# e com lote cross-câmera na GPU. Use para gerar índices de avaliação, em que
+# os filtros não devem esconder frames do ground truth.
+motion_detection:
+  enabled: false
+
+batch:
+  enabled: true
+  batch_size: 16
+  timeout_ms: 200
+
+embedding_filter:
+  enabled: false

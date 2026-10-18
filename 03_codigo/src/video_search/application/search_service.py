@@ -35,6 +35,11 @@ class SearchMode(str, Enum):
     DETAILED = "detailed"
 
 
+def default_retrieval_k(top_k: int) -> int:
+    """Candidatos do índice que o modo DETAILED passa ao MMR."""
+    return max(top_k * 4, 20)
+
+
 # (score, record, embedding, camera_id)
 _Hit = Tuple[float, FrameRecord, np.ndarray, str]
 
@@ -75,7 +80,7 @@ class SearchService:
 
         Args:
             retrieval_k: candidatos do índice antes do MMR (modo DETAILED);
-                         None = max(4·top_k, 20).
+                         None = default_retrieval_k(top_k).
             mmr_lambda:  1.0 = relevância pura, 0.0 = diversidade pura.
         """
         mode = SearchMode(mode)
@@ -83,7 +88,7 @@ class SearchService:
         if mode == SearchMode.FAST:
             retrieval_k = top_k
         elif retrieval_k is None:
-            retrieval_k = max(top_k * 4, 20)
+            retrieval_k = default_retrieval_k(top_k)
 
         query_emb = self._encode_query(query, p)
         hits = self._retrieve(query_emb, cameras, retrieval_k, p)

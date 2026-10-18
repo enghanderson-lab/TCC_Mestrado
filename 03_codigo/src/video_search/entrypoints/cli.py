@@ -16,15 +16,20 @@ Exemplos:
 Profiling:
     python -m video_search index video.mp4 --profiling-dir profiling/
     python -m video_search search "..." --profiling-dir profiling/
+
+Avaliação da confiança (ver application/evaluation.py):
+    python -m video_search evaluate ..\\04_dados\\anotacoes\\consultas.jsonl --index-root index
 """
 
 import argparse
 import json
 import logging
+import math
 import sys
 from pathlib import Path
 
 from ..adapters.models.model_config import ModelConfig
+from ..application.evaluation import EvaluationConfig, Estimate, evaluate, load_annotations
 from ..application.search_service import SearchMode
 from ..bootstrap import Container
 from ..config import MultiIndexConfig
@@ -126,6 +131,49 @@ def cmd_search(args: argparse.Namespace, container: Container) -> None:
         print(line)
 
 
+def _fmt(est: Estimate, pct: bool = True) -> str:
+    if est.value is None:
+        return "indefinida"
+    f = (lambda x: f"{x * 100:.1f}%") if pct else (lambda x: f"{x:.3f}")
+    ci = f"  (IC 95%: {f(est.ci95[0])} a {f(est.ci95[1])})" if est.ci95 else ""
+    return f(est.value) + ci
+
+
+def cmd_evaluate(args: argparse.Namespace, container: Container) -> None:
+    from ..adapters.evaluation_report import write_report
+
+    annotations = load_annotations(args.annotations)
+    n_pos = sum(a.positive for a in annotations)
+    print(f"[{len(annotations)} consultas: {n_pos} positivas, {len(annotations) - n_pos} negativas]")
+    config = EvaluationConfig(
+        top_k=args.top_k, tolerance_sec=args.tolerance, target_tpr=args.target,
+        tau=args.tau, folds=args.folds, n_boot=args.bootstrap, seed=args.seed,
+        retrieval_k=args.retrieval_k, mmr_lambda=args.reranker_lambda,
+    )
+    report = evaluate(
+        container.search, annotations, Path(args.index_root), config,
+        on_query=lambda i, n, a: print(f"  [{i}/{n}] {a.query_id}: {a.query}"),
+    )
+    out = write_report(report, args.output)
+
+    mt = report.metrics
+    tau = f"{mt.tau:.4f}" if math.isfinite(mt.tau) else "indefinido"
+    print()
+    print(f"1. Detecção confirmada (top-{args.top_k}, confiança ≥ τ): {_fmt(mt.detection)}")
+    print(f"2. Taxa de falso alarme (consultas negativas):        {_fmt(mt.false_alarm)}")
+    print(f"3. AUROC da confiança (por resultado):               {_fmt(mt.auroc, pct=False)}")
+    print(f"   τ = {tau}  [{mt.tau_source}; alvo de detecção {args.target * 100:.0f}%]")
+    if not mt.target_reached:
+        print(f"   ATENÇÃO: o alvo de {args.target * 100:.0f}% de detecção não é atingível nem com τ mínimo —")
+        print("   há consultas positivas sem nenhum resultado correto no top-K.")
+    if mt.recall_at_k is not None:
+        print(f"   Diagnóstico: alvo no top-{args.top_k} (qualquer confiança) = {mt.recall_at_k * 100:.1f}%; "
+              f"alvo entre os candidatos do SigLIP = {mt.retrieval_recall * 100:.1f}%")
+    if mt.n_results_without_confidence:
+        print(f"   {mt.n_results_without_confidence} resultado(s) sem legenda (vídeo ilegível) ficaram fora da AUROC.")
+    print(f"Relatório salvo em '{out}' (metricas.json, consultas.csv, roc.png)")
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Busca semantica em video via SigLIP + Qwen2.5-VL")
     parser.add_argument(
@@ -211,6 +259,24 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     p_search.set_defaults(func=cmd_search)
+
+    p_eval = sub.add_parser(
+        "evaluate",
+        help="Avalia a confiança contra consultas anotadas: detecção confirmada, falso alarme e AUROC",
+    )
+    p_eval.add_argument("annotations", help="Arquivo JSONL de consultas anotadas (ver application/evaluation.py)")
+    p_eval.add_argument("--index-root", default="index", help="Pasta com um índice por câmera (<index-root>/<camera>)")
+    p_eval.add_argument("--output", default="avaliacao", help="Pasta do relatório (metricas.json, consultas.csv, roc.png)")
+    p_eval.add_argument("--top-k", type=int, default=5, help="Resultados considerados por consulta. Default: 5")
+    p_eval.add_argument("--tolerance", type=float, default=2.0, help="Tolerância temporal em segundos ao redor do trecho anotado. Default: 2")
+    p_eval.add_argument("--target", type=float, default=0.9, help="Detecção mínima exigida para escolher τ (0-1). Default: 0.9")
+    p_eval.add_argument("--tau", type=float, default=None, help="Fixa o limiar de confiança em vez de calibrá-lo por validação cruzada")
+    p_eval.add_argument("--folds", type=int, default=5, help="Folds da validação cruzada que escolhe τ. Default: 5")
+    p_eval.add_argument("--bootstrap", type=int, default=2000, help="Reamostras para os IC 95%%. Default: 2000")
+    p_eval.add_argument("--seed", type=int, default=0, help="Semente (resultados reprodutíveis). Default: 0")
+    p_eval.add_argument("--retrieval-k", type=int, default=None, help="Candidatos FAISS antes do MMR. Default: max(4·top-k, 20)")
+    p_eval.add_argument("--reranker-lambda", type=float, default=0.7, help="λ do MMR. Default: 0.7")
+    p_eval.set_defaults(func=cmd_evaluate)
 
     return parser
 
