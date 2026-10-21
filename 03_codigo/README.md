@@ -104,7 +104,7 @@ de confiança.
 ## Limitações conhecidas / próximos passos
 
 - SigLIP dá um score de similaridade, não uma "confiança" calibrada — por
-  isso o reranking via Qwen2.5-VL (`describe_for_query_batch` + sentence-transformer)
+  isso o reranking via Qwen2.5-VL (`describe_for_query_batch` + NLI)
   é a fonte de confiança exibida na busca (ver `00_proposta/projeto_pesquisa.md`
   e achados no [README do projeto](../README.md#achados-de-validação)).
 - Busca por força bruta em numpy não escala indefinidamente; para vídeos de

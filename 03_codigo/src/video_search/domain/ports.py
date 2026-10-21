@@ -39,14 +39,21 @@ class TextEmbedder(Protocol):
 
 class Captioner(Protocol):
     def describe_for_query_batch(
-        self, images: Sequence[Image], query: str, profiler=None
+        self,
+        images: Sequence[Image],
+        query: str,
+        zooms: Optional[Sequence[Image]] = None,
+        profiler=None,
     ) -> List[str]:
-        """Uma legenda curta por imagem, condicionada à query."""
+        """Uma legenda curta por imagem, condicionada à query. `zooms[i]`,
+        quando dado, é um recorte ampliado de `images[i]` onde o alvo
+        provavelmente está (ver domain/tiling.py)."""
 
 
 class ConfidenceScorer(Protocol):
     def score(self, query: str, captions: Sequence[str]) -> List[float]:
-        """Confiança de cada legenda corresponder à query."""
+        """Confiança (0–1) de que cada legenda afirma o que a query pede.
+        Deve tratar negação: "não há X" contradiz "X"."""
 
 
 # ---------------------------------------------------------------------------

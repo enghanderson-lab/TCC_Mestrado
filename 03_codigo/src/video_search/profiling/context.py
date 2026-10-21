@@ -20,10 +20,6 @@ class StageStats:
     items: int = 0
 
     @property
-    def mean_sec(self) -> float:
-        return self.total_sec / self.calls if self.calls > 0 else 0.0
-
-    @property
     def items_per_sec(self) -> float:
         return self.items / self.total_sec if (self.total_sec > 0 and self.items > 0) else 0.0
 

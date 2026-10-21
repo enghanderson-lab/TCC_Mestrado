@@ -1,11 +1,13 @@
 """Composition root: o único lugar que conhece as implementações concretas.
 
-Monta os adapters (SigLIP, Qwen, sentence-transformer, FAISS, OpenCV,
+Monta os adapters (SigLIP, Qwen, NLI de confiança, FAISS, OpenCV,
 SQLite, executor de GPU) e os injeta nos serviços de `application/`. CLI e
 API criam um `Container` cada e usam apenas seus serviços.
 
 Os serviços são criados sob demanda (e uma única vez): a CLI de indexação
-não abre o banco SQLite, e o banco não carrega modelos.
+não abre o banco SQLite, e o banco não carrega modelos. O mesmo vale para os
+modelos: a busca recebe Qwen e NLI por `_OnDemand`, então uma busca FAST (e a
+indexação) só carrega o SigLIP.
 """
 
 import threading
@@ -15,7 +17,6 @@ from .adapters.gpu_executor import GpuExecutor
 from .adapters.media.opencv_frames import OpenCVFrameSource
 from .adapters.models.model_config import ModelConfig
 from .adapters.models.model_manager import ModelManager
-from .adapters.models.sentence_st import SentenceTransformerScorer
 from .adapters.storage.file_index import FileIndexRepository
 from .adapters.storage.sqlite import SQLiteDatabase
 from .adapters.storage.sqlite_cameras import SQLiteCameraRepository
@@ -25,8 +26,19 @@ from .application.index_jobs import IndexJobService
 from .application.indexing_service import IndexingService
 from .application.search_service import SearchService
 from .config import Settings
+from .domain.tiling import ZoomConfig
 
 T = TypeVar("T")
+
+
+class _OnDemand:
+    """Representa um modelo que só é carregado no primeiro uso de um atributo."""
+
+    def __init__(self, load: Callable[[], object]) -> None:
+        self._load = load
+
+    def __getattr__(self, name: str):
+        return getattr(self._load(), name)
 
 
 class Container:
@@ -53,11 +65,13 @@ class Container:
     def search(self) -> SearchService:
         return self._once("search", lambda: SearchService(
             text_embedder=self.models.get_siglip(),
-            captioner=self.models.get_qwen(),
-            scorer=SentenceTransformerScorer(self.models.get_sentence_transformer()),
+            captioner=_OnDemand(self.models.get_qwen),
+            scorer=_OnDemand(self.models.get_scorer),
             indexes=self.indexes,
             frames=self.frames,
             gpu=self.gpu,
+            image_embedder=self.models.get_siglip(),
+            zoom=ZoomConfig(),
         ))
 
     @property

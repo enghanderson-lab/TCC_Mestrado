@@ -2,7 +2,7 @@
 
 Formato de disco: embeddings.npy + records.json + metadata.json.
 Usado como fallback quando FAISS não está instalado e para ler índices
-antigos (ex.: 04_dados/index/meu_video). Viável até centenas de milhares de
+gerados antes da adoção do FAISS. Viável até centenas de milhares de
 frames; o formato padrão é o FAISS (ver faiss_index.py).
 """
 

@@ -19,8 +19,7 @@ transformers
 accelerate
 qwen-vl-utils
 av
-sentence-transformers
-sentencepiece
+sentencepiece       # tokenizador do mDeBERTa (confiança por NLI)
 protobuf
 bitsandbytes
 

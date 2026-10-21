@@ -24,6 +24,9 @@ from transformers import AutoProcessor, BitsAndBytesConfig, Qwen2_5_VLForConditi
 from .hf_utils import load_offline_first
 
 _MAX_IMAGE_SIDE = 768
+# Com recorte ampliado, o frame inteiro só dá contexto: vai menor, para que o
+# par (frame + recorte) custe ~40% a mais de tokens visuais, e não o dobro.
+_CONTEXT_IMAGE_SIDE = 512
 
 # Cache local dos pesos JA quantizados em NF4 (mesmo checkpoint e mesma
 # BitsAndBytesConfig do model_name default abaixo -- so persistido pos-
@@ -141,16 +144,11 @@ class Qwen2VLDescriber:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _build_messages(image: Image.Image, prompt: str) -> List[dict]:
-        return [
-            {
-                "role": "user",
-                "content": [
-                    {"type": "image", "image": image},
-                    {"type": "text", "text": prompt},
-                ],
-            }
-        ]
+    def _build_messages(image: Image.Image, prompt: str, zoom: Optional[Image.Image] = None) -> List[dict]:
+        images = [{"type": "image", "image": image}]
+        if zoom is not None:
+            images.append({"type": "image", "image": zoom})
+        return [{"role": "user", "content": [*images, {"type": "text", "text": prompt}]}]
 
     def _prepare_inputs(self, image: Image.Image, prompt: str):
         image = _resize_for_vlm(image)
@@ -181,25 +179,31 @@ class Qwen2VLDescriber:
         return self.processor.batch_decode(trimmed, skip_special_tokens=True)[0].strip()
 
     @staticmethod
-    def _query_prompt(query: str) -> str:
-        """Prompt da legenda condicionada a query.
+    def _query_prompt(query: str, with_zoom: bool = False) -> str:
+        """Prompt da legenda condicionada à query.
 
-        Gera 1 frase curta com especificidade comparavel a da query (em vez
-        de uma legenda generica e longa), o que torna a similaridade
-        texto-texto com a query mais discriminativa.
+        Pede uma frase curta sobre o alvo, e não sobre o cenário: legendas
+        longas ("uma rua à noite com várias lojas...") eram cortadas no limite
+        de tokens antes de mencionar o alvo, e diluíam a confiança.
 
-        O prompt evita a forma "Esta imagem mostra X?": essa pergunta direta
-        induz confirmacao em objetos visualmente parecidos mas diferentes do
-        pedido (ex.: confundiu rack de teto com escada, mesmo em resolucao
-        plena) -- o mesmo vies que fez a abordagem VQA Sim/Nao ser
-        abandonada. Em vez disso, pede para nomear o tipo exato do objeto."""
+        Evita a forma "Esta imagem mostra X?", que induz confirmação em
+        objetos parecidos mas diferentes do pedido (rack de teto lido como
+        escada). Pede o tipo exato do que aparece e, se o alvo não estiver lá,
+        que isso seja dito — a confiança (NLI) trata "não há X" como
+        contradição."""
+        images = (
+            "A primeira imagem é a cena inteira; a segunda é um recorte ampliado "
+            "da região da cena mais parecida com o pedido. "
+            if with_zoom else ""
+        )
         return (
-            f"Estou procurando por: '{query}'. Sem assumir que isso esta na "
-            "imagem, observe com atencao e descreva em 1 frase curta o que "
-            "realmente aparece, nomeando o tipo exato dos objetos (ex.: "
-            "moto ou bicicleta, van ou caminhonete, escada ou rack de "
-            "teto). Se o que aparece for apenas parecido mas diferente do "
-            "que foi pedido, diga o que e de fato, em vez de confirmar."
+            f"{images}Pedido: '{query}'. Sem assumir que isso está na imagem, "
+            "responda em UMA frase curta, de no máximo 25 palavras, dizendo o "
+            "que realmente aparece em relação ao pedido: as pessoas, roupas, "
+            "veículos ou objetos relacionados, com o tipo exato (ex.: moto ou "
+            "bicicleta, van ou caminhonete, escada ou rack de teto). Não "
+            "descreva o cenário, a rua ou as lojas. Se o pedido não aparece, "
+            "diga o que aparece no lugar."
         )
 
     @torch.no_grad()
@@ -207,20 +211,30 @@ class Qwen2VLDescriber:
         self,
         images: List[Image.Image],
         query: str,
-        max_new_tokens: int = 40,
+        zooms: Optional[List[Image.Image]] = None,
+        max_new_tokens: int = 64,
         profiler=None,
     ) -> List[str]:
         """Legendas condicionadas a `query` (ver `_query_prompt`) para todas
-        as `images` numa unica chamada a `generate()`.
+        as `images` numa única chamada a `generate()`. Com `zooms`, cada
+        mensagem leva o frame (reduzido a 512 px, como contexto) e o recorte
+        ampliado correspondente (até 768 px).
 
         `profiler` (Optional[ProfilingContext]): registra qwen_preprocess e
         qwen_infer separadamente, e incrementa qwen_calls.
         """
         if not images:
             return []
-        prompt = self._query_prompt(query)
-        resized = [_resize_for_vlm(image) for image in images]
-        messages_batch = [self._build_messages(image, prompt) for image in resized]
+        if zooms is not None and len(zooms) != len(images):
+            raise ValueError("zooms deve ter um recorte por imagem")
+        prompt = self._query_prompt(query, with_zoom=zooms is not None)
+        if zooms is None:
+            messages_batch = [self._build_messages(_resize_for_vlm(im), prompt) for im in images]
+        else:
+            messages_batch = [
+                self._build_messages(_resize_for_vlm(im, _CONTEXT_IMAGE_SIDE), prompt, _resize_for_vlm(z))
+                for im, z in zip(images, zooms)
+            ]
         texts = [
             self.processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
             for messages in messages_batch

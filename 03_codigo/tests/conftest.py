@@ -56,9 +56,11 @@ class FakeTextEmbedder:
 class FakeCaptioner:
     def __init__(self):
         self.calls = []
+        self.zooms = []
 
-    def describe_for_query_batch(self, images, query, profiler=None):
+    def describe_for_query_batch(self, images, query, zooms=None, profiler=None):
         self.calls.append(len(images))
+        self.zooms.append(zooms)
         return [
             "cena clara" if np.asarray(img.convert("L")).mean() > 127 else "cena escura"
             for img in images

@@ -23,6 +23,7 @@ O resultado será disponibilizado como microsserviço.
                           VectorIndex, IndexRepository, CameraRepository, JobRepository,
                           FrameSource, GpuRunner
       mmr.py              MmrReranker — diversidade entre candidatos antes do Qwen
+      metrics.py          Métricas da confiança: TPR/FPR no ponto de operação, AUROC, bootstrap
       filters.py          MotionFilter + EmbeddingSimilarityFilter
     application/          Casos de uso (dependem só das portas)
       search_service.py   SearchService — busca FAST/DETAILED multi-câmera (CLI e API)
@@ -30,8 +31,9 @@ O resultado será disponibilizado como microsserviço.
       indexing_pipeline.py Pipeline produtor-consumidor (leitura → filtros → SigLIP → índice)
       index_jobs.py       IndexJobService — jobs em background, persistidos e canceláveis
       camera_service.py   CameraService — listar/selecionar/remover câmeras
+      evaluation.py       Avaliação contra consultas anotadas (comando `evaluate`)
     adapters/             Implementações concretas das portas
-      models/             SigLIP, Qwen2.5-VL (4-bit), sentence-transformer, ModelManager
+      models/             SigLIP, Qwen2.5-VL (4-bit), NLI de confiança (mDeBERTa), ModelManager
       storage/            FAISS, numpy legado, repositório de índices, SQLite (câmeras/jobs)
       media/              OpenCV (frames) e PyAV (clips MP4)
       gpu_executor.py     Thread única dona da GPU, com fila de prioridade (busca > indexação)
@@ -40,8 +42,7 @@ O resultado será disponibilizado como microsserviço.
     config.py             YAML multi-câmera (pydantic) + Settings da API (env vars)
     profiling/            Relatório de tempo por etapa + monitor de hardware
 04_dados/
-  raw/                    Vídeos de teste e frames de validação
-  index/                  Índices SigLIP gerados (embeddings.npy + records.json)
+  anotacoes/              Consultas anotadas (ground truth) para `evaluate` — formato no README da pasta
   models/                 Cache local de pesos já quantizados (Qwen2.5-VL 4-bit), gerado na 1ª busca
 ```
 
@@ -55,7 +56,7 @@ O pipeline opera em dois estágios separados:
 Vídeo .mp4
   └─ Extração de frames a cada N segundos (OpenCV)
        └─ SigLIP encode_image em batch (GPU, ~ms/frame)
-            └─ embeddings.npy + records.json + metadata.json
+            └─ faiss.index + records.json + metadata.json
 ```
 
 Custo: ~3–4 minutos para 6 horas de vídeo (intervalo de 1s, GPU RTX 4060).
@@ -65,11 +66,13 @@ Custo: ~3–4 minutos para 6 horas de vídeo (intervalo de 1s, GPU RTX 4060).
 ```
 Query em português
   └─ SigLIP encode_text (suporte nativo a PT, sem tradução)
-       └─ similaridade contra embeddings.npy (numpy, <1s)
-            └─ Top-K frames
-                 └─ Qwen2.5-VL describe_for_query (1 frase focada na query)
-                      └─ sentence-transformer: confiança = cos_sim(query, legenda)
-                           └─ Resultado rerankeado por confiança
+       └─ busca no índice FAISS (<1s) → Top-N candidatos → MMR → Top-K
+            └─ recorte ampliado: grade 3×3 de recortes sobrepostos; o SigLIP
+               escolhe o mais parecido com a query (alvos pequenos ganham ~2×)
+                 └─ Qwen2.5-VL: frame (512 px) + recorte (768 px) → 1 frase
+                    curta sobre o alvo, dizendo também quando ele NÃO aparece
+                      └─ NLI (mDeBERTa-v3 XNLI): confiança = P(legenda ⇒
+                         "A imagem mostra <query>"); "não há X" = contradição
 ```
 
 O VLM (Qwen2.5-VL) roda apenas sobre os top-K resultados do SigLIP — nunca em
@@ -161,7 +164,7 @@ dependem só das portas (`domain/ports.py`), e `bootstrap.py` é o único lugar
 que liga cada porta à sua implementação concreta.
 
 ```
- CLI ─┐                                   ┌─ SigLIP / Qwen2.5-VL / sentence-transformer
+ CLI ─┐                                   ┌─ SigLIP / Qwen2.5-VL / NLI (mDeBERTa)
       ├─► SearchService ───┐              ├─ FAISS / numpy (índices em disco)
  API ─┘   IndexingService ─┼─► portas ◄───┼─ SQLite (câmeras, jobs)
           IndexJobService ─┘  (domain)    ├─ OpenCV (frames), PyAV (clips)
@@ -189,35 +192,65 @@ Por que essa escolha:
 |--------|-------|---------|
 | SigLIP multilingual base-patch16-256 | Indexação e retrieval imagem/texto (PT nativo) | Apache 2.0 |
 | Qwen2.5-VL-3B-Instruct (4-bit) | Legenda condicionada à query (reranking) | Apache 2.0 |
-| paraphrase-multilingual-mpnet-base-v2 | Score de confiança (sentence-transformer) | Apache 2.0 |
+| MoritzLaurer/mDeBERTa-v3-base-xnli-multilingual-nli-2mil7 | Confiança por NLI (a legenda implica a query?); substituiu o paraphrase-multilingual-mpnet-base-v2 em 2026-10-18 | MIT |
 
 ## Uso rápido
 
+No PowerShell, a partir de `03_codigo` (o pacote está instalado em modo
+editável no `.venv`):
+
 ```powershell
-cd 03_codigo
-.\.venv\Scripts\Activate.ps1
-$env:PYTHONPATH = "src"
+# Indexar um vídeo (só carrega o SigLIP)
+.venv\Scripts\python.exe -m video_search index "C:\Users\Lucas\Videos\testeA1.mkv" --output index\testeA1 --interval 2
 
-# Indexar um vídeo (SigLIP)
-python -m video_search index "video.mp4" --output "..\04_dados\index\teste9" --interval 1
+# Busca completa: SigLIP → MMR → recorte ampliado → legenda (Qwen) → confiança (NLI)
+.venv\Scripts\python.exe -m video_search search "uma mulher de rosa sobre uma moto e sem uso do capacete" --index index\testeA1
 
-# Buscar
+# Busca em vários índices, com ranking global
+.venv\Scripts\python.exe -m video_search search "uma van" --index index\Teste13 index\teste6
 
-.venv\Scripts\python.exe -m video_search search "procure por um carro branco com uma escada sobre o teto" --index ..\04_dados\index\teste7_siglip
-.venv\Scripts\python.exe -m video_search search "procure por uma van" --index ..\04_dados\index\teste6_siglip
+# Busca rápida, só SigLIP (sem legenda nem confiança; não carrega Qwen nem NLI)
+.venv\Scripts\python.exe -m video_search search "uma van" --index index\Teste13 --mode fast
 
+# Várias câmeras num processo (configs\sem_filtros.yaml não descarta frames)
+.venv\Scripts\python.exe -m video_search index-multi cam1.mp4 cam2.mp4 --output index --config configs\multi_index.yaml
 
-# Buscar sem VLM (apenas SigLIP, mais rápido)
-python -m video_search search "homem com caderno de anotações" --index "..\04_dados\index\meu_video" --mode fast
-
-# Indexar várias câmeras simultaneamente (motion detection + batch cross-câmera + filtro de similaridade)
-python -m video_search index-multi cam1.mp4 cam2.mp4 cam3.mp4 --output ..\04_dados\index --config configs\multi_index.yaml
-```
-
-.venv\Scripts\python.exe -m video_search search "procure por uma van escolar" --index ..\04_dados\index\teste9_siglip
+# Avaliar a confiança contra o ground truth (ver 04_dados\anotacoes)
+.venv\Scripts\python.exe -m video_search evaluate ..\04_dados\anotacoes\consultas.jsonl --index-root index
 ```
 
 ## Achados de validação
+
+### Confiança cega a negação e a alvos pequenos (2026-10-18) — corrigido
+
+Caso real em `testeA1` (CFTV 1080p, rua à noite), consulta *"uma mulher de
+rosa sobre uma moto e sem uso do capacete"*. O alvo aparece em t=40 s, pequeno
+no quadro, e o SigLIP já o colocava em 1º lugar — o erro estava todo na
+confiança:
+
+| t | Antes: legenda (cortada em 40 tokens) | Antes | Depois: legenda | Depois |
+|---|---|---|---|---|
+| **40 s (alvo)** | "…Há um homem vestindo camisa branca e calça preta parado ao lado de um est" | 21,3% | "A imagem mostra uma pessoa de rosa em uma motocicleta sem capacete." | **12,2%** (a maior) |
+| 30 s | "**Não há** uma mulher de rosa sobre uma moto e sem uso do capacete na imagem." | **92,8%** (a maior) | "Nenhuma mulher de rosa ou sem capacete é vista na imagem." | 0,1% |
+| 6 s | "…uma mulher vestida de rosa, mas não está usando um capacete." | 60,2% | "Nenhuma mulher de rosa sobre uma moto sem capacete aparece na imagem." | 0,1% |
+
+Três causas e três correções:
+1. **Cosseno texto-texto ignora negação** — "não há X" repete as palavras de
+   X. Trocado por NLI (mDeBERTa-v3 XNLI, MIT): confiança = P(a legenda implica
+   "A imagem mostra <query>"). Negação vira contradição (≈0).
+2. **Alvo pequeno some no resize para 768 px** (limite de VRAM). O frame é
+   dividido numa grade 3×3 de recortes sobrepostos; o SigLIP escolhe o
+   recorte mais parecido com a query e o Qwen recebe frame (512 px) +
+   recorte (768 px) — ~2× de resolução sobre o alvo.
+3. **Legenda longa e truncada** — prompt agora pede 1 frase de até 25
+   palavras sobre o alvo, sem descrever o cenário, e diz explicitamente quando
+   ele não aparece; `max_new_tokens` 40 → 64.
+
+Custos medidos (RTX 4060): pico de VRAM 3,3 → 3,9 GB (ainda abaixo dos 6 GB da
+RTX 3060); busca DETAILED num 1080p de ~8 s para ~20–28 s. O valor absoluto da
+confiança do alvo ficou baixo (12,2%) porque o NLI é estrito: "uma pessoa de
+rosa" não implica "uma mulher". A ordem está certa (alvo ≫ demais); o limiar τ
+de produto deve vir da calibração do comando `evaluate`, não de um valor fixo.
 
 ### Evolução do modelo de retrieval: CLIP → tradução de query → M-CLIP → SigLIP
 

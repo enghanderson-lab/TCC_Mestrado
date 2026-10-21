@@ -1,0 +1,3 @@
+{"id": "p01", "query": "uma van branca estacionada", "camera": "Teste13", "spans": [[12.0, 18.5]]}
+{"id": "p02", "query": "um homem de camisa vermelha", "camera": "Teste13", "spans": [[40.0, 46.0], [130.0, 133.5]]}
+{"id": "n01", "query": "um carro com uma escada no teto", "camera": "Teste13", "spans": []}

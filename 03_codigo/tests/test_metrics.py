@@ -23,7 +23,7 @@ def test_threshold_for_tpr_picks_highest_tau_reaching_target():
 
     assert point.reached
     assert point.tau == pytest.approx(0.1)  # 9 de 10 positivas com confiança >= 0,1
-    assert m.rate_at(pos, point.tau) == pytest.approx(0.9)
+    assert np.mean(np.asarray(pos) >= point.tau) == pytest.approx(0.9)
 
 
 def test_threshold_unreachable_when_positives_were_never_retrieved():
@@ -33,7 +33,7 @@ def test_threshold_unreachable_when_positives_were_never_retrieved():
 
     assert not point.reached
     assert point.tau == pytest.approx(0.8)  # detecção máxima possível = 50%
-    assert m.rate_at(pos, point.tau) == pytest.approx(0.5)
+    assert np.mean(np.asarray(pos) >= point.tau) == pytest.approx(0.5)
 
 
 def test_auroc_matches_sklearn_including_ties():

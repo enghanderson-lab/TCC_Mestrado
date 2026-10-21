@@ -2,8 +2,9 @@
 
 Dois modos:
     FAST     — SigLIP → Top-K direto do índice vetorial (sem VLM)
-    DETAILED — SigLIP → Top-N candidatos → MMR → Top-K → legenda (Qwen)
-               + confiança (similaridade texto-texto query × legenda)
+    DETAILED — SigLIP → Top-N candidatos → MMR → Top-K → recorte ampliado
+               (SigLIP escolhe a região) → legenda (Qwen, frame + recorte)
+               → confiança (NLI: a legenda implica a query?)
 
 O VLM processa apenas os top_k frames selecionados pelo MMR, reduzindo
 drasticamente o número de inferências em relação à busca ingênua.
@@ -24,8 +25,9 @@ import numpy as np
 from ..domain.entities import Camera, FrameRecord, SearchResult
 from ..domain.mmr import MmrReranker
 from ..domain.ports import (
-    Captioner, ConfidenceScorer, FrameSource, GpuRunner, IndexRepository, TextEmbedder,
+    Captioner, ConfidenceScorer, FrameSource, GpuRunner, ImageEmbedder, IndexRepository, TextEmbedder,
 )
+from ..domain.tiling import ZoomConfig, tile_boxes
 
 logger = logging.getLogger(__name__)
 
@@ -53,9 +55,17 @@ class SearchService:
         indexes: IndexRepository,
         frames: FrameSource,
         gpu: GpuRunner,
+        image_embedder: Optional[ImageEmbedder] = None,
+        zoom: Optional[ZoomConfig] = None,
         query_cache_size: int = 256,
     ) -> None:
+        """`zoom` + `image_embedder`: liga o recorte ampliado no modo
+        DETAILED (ver domain/tiling.py); sem eles o VLM vê só o frame."""
+        if zoom is not None and image_embedder is None:
+            raise ValueError("zoom exige image_embedder para escolher o recorte")
         self._text_embedder = text_embedder
+        self._image_embedder = image_embedder
+        self._zoom = zoom
         self._captioner = captioner
         self._scorer = scorer
         self._indexes = indexes
@@ -102,7 +112,7 @@ class SearchService:
             hits = [by_record[id(rec)] for _, rec in reranked]
             if p:
                 p.add_time("mmr_rerank", time.perf_counter() - t0, len(hits))
-            scored = self._caption_and_score(query, [h[1] for h in hits], p)
+            scored = self._caption_and_score(query, query_emb, [h[1] for h in hits], p)
         else:
             hits = hits[:top_k]
             scored = {}
@@ -162,7 +172,7 @@ class SearchService:
         return hits[:k]
 
     def _caption_and_score(
-        self, query: str, records: Sequence[FrameRecord], p
+        self, query: str, query_emb: np.ndarray, records: Sequence[FrameRecord], p
     ) -> Dict[int, Tuple[str, float]]:
         """{posição em records: (legenda, confiança)} para os frames cujo
         vídeo pode ser lido."""
@@ -187,9 +197,11 @@ class SearchService:
             return {}
 
         captionable = sorted(images)
+        frames = [images[i] for i in captionable]
+        zooms = self._best_tiles(frames, query_emb, p) if self._zoom else None
         captions = self._gpu.run(
             self._captioner.describe_for_query_batch,
-            [images[i] for i in captionable], query,
+            frames, query, zooms=zooms,
             profiler=p, priority=self._gpu.SEARCH,
         )
 
@@ -199,3 +211,19 @@ class SearchService:
             p.add_time("confidence_score", time.perf_counter() - t0, len(captions))
 
         return {i: (c, conf) for i, c, conf in zip(captionable, captions, confidences)}
+
+    def _best_tiles(self, frames, query_emb: np.ndarray, p) -> List:
+        """Para cada frame, o recorte da grade com maior similaridade SigLIP
+        com a query — onde o alvo provavelmente está."""
+        t0 = time.perf_counter()
+        boxes = [tile_boxes(f.width, f.height, self._zoom) for f in frames]
+        tiles = [f.crop(b) for f, bs in zip(frames, boxes) for b in bs]
+        embs = self._gpu.run(self._image_embedder.encode_images, tiles, priority=self._gpu.SEARCH)
+        sims = np.asarray(embs) @ np.asarray(query_emb)
+        best, offset = [], 0
+        for bs in boxes:
+            best.append(tiles[offset + int(np.argmax(sims[offset:offset + len(bs)]))])
+            offset += len(bs)
+        if p:
+            p.add_time("zoom_select", time.perf_counter() - t0, len(tiles))
+        return best

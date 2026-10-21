@@ -30,7 +30,7 @@ Docs interativas (Swagger) em `http://localhost:8000/docs`.
 > wildcard (`*`) — então configure sempre a origem exata do frontend, ex.:
 > `VS_CORS_ORIGINS=https://seu-projeto.lovable.app`.
 
-No lifespan da aplicação os modelos (SigLIP, Qwen2.5-VL, sentence-transformer)
+No lifespan da aplicação os modelos (SigLIP, Qwen2.5-VL, NLI de confiança)
 são carregados uma única vez via `ModelManager` — a primeira requisição já
 encontra tudo pronto, mas o boot do processo demora até o load terminar.
 

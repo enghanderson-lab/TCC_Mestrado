@@ -87,7 +87,12 @@ def test_qwen_batch_captions_follow_the_image(container):
 
     assert len(captions) == 2 and all(c.strip() for c in captions)
     assert "vermelh" in captions[0].lower()
-    assert "azul" in captions[1].lower()  # não confirma a query quando a imagem não bate
+    # A imagem azul não pode ser confirmada como vermelha. O prompt pede que a
+    # ausência seja dita ("Não há nada vermelho na imagem."), então o critério
+    # é a confiança NLI, não uma palavra específica na legenda.
+    conf = container.models.get_scorer().score("uma imagem vermelha", captions)
+    print(f"  confiança NLI: vermelha={conf[0]:.3f} azul={conf[1]:.3f}")
+    assert conf[0] > 0.5 > conf[1]
 
 
 def test_search_fast_on_real_index(container, red_blue_camera):
@@ -179,3 +184,42 @@ def test_evaluate_confidence_metrics_with_real_models(container, red_blue_camera
         assert est.ci95 is not None
     assert all(r.caption for o in report.outcomes for r in o.results)
     assert (out / "metricas.json").exists() and (out / "roc.png").exists()
+
+
+def test_nli_scorer_handles_negation(container):
+    scorer = container.models.get_scorer()
+    query = "uma mulher de rosa sobre uma moto e sem uso do capacete"
+    conf = scorer.score(query, [
+        "Uma mulher de vestido rosa pilota uma moto vermelha sem capacete.",
+        "Não há uma mulher de rosa sobre uma moto e sem uso do capacete na imagem.",
+        "Um homem de camisa branca está parado na calçada.",
+    ])
+    print(f"\n[NLI] afirma={conf[0]:.3f} nega={conf[1]:.3f} fala_de_outra_coisa={conf[2]:.3f}")
+    assert conf[0] > 0.9
+    assert conf[1] < 0.1   # antes (cosseno): 92,8%
+    assert conf[2] < 0.1
+
+
+TESTE_A1_INDEX = Path(__file__).resolve().parents[1] / "index" / "testeA1"
+
+
+@pytest.mark.skipif(not (TESTE_A1_INDEX / "records.json").exists(), reason="índice testeA1 ausente")
+def test_real_case_woman_in_pink_on_motorcycle(container):
+    """Regressão do caso real de 2026-10-18: alvo em t=40 s, pequeno no
+    frame 1080p. Antes: t=40 s com 21,3% e "Não há uma mulher..." com 92,8%."""
+    query = "uma mulher de rosa sobre uma moto e sem uso do capacete"
+    t0 = time.perf_counter()
+    results = container.search.search(
+        query, [Camera("testeA1", "", str(TESTE_A1_INDEX))], mode=SearchMode.DETAILED, top_k=5)
+    print(f"\n[testeA1 detailed: {time.perf_counter() - t0:.1f}s, pico VRAM "
+          f"{torch.cuda.max_memory_allocated() / 2**30:.2f} GB]")
+    for r in sorted(results, key=lambda r: -r.confidence):
+        print(f"  t={r.timestamp_sec:5.1f}s conf={r.confidence:.3f} legenda={r.caption!r}")
+
+    target = [r for r in results if 38.0 <= r.timestamp_sec <= 42.0]
+    assert target, "o SigLIP deixou de trazer o frame do alvo"
+    best = max(results, key=lambda r: r.confidence)
+    assert best is target[0], "a maior confiança não está no frame do alvo"
+    for r in results:
+        if r.caption.lower().startswith(("não há", "não aparece", "nao ha")):
+            assert r.confidence < 0.5

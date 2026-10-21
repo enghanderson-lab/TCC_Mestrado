@@ -33,13 +33,6 @@ def in_spans(timestamp_sec: float, spans: Sequence[Tuple[float, float]], toleran
     return any(start - tolerance_sec <= timestamp_sec <= end + tolerance_sec for start, end in spans)
 
 
-def rate_at(scores: Sequence[float], tau: float) -> Optional[float]:
-    """Fração de escores ≥ τ (TPR para positivos, FPR para negativos)."""
-    if len(scores) == 0:
-        return None
-    return float(np.mean(np.asarray(scores, dtype=float) >= tau))
-
-
 @dataclass
 class OperatingPoint:
     tau: float
